@@ -205,8 +205,8 @@ class ImportProduct(Product):
     for the list of allowed values and their meaning.
     """
 
-    use_base: bool = False
-    """If true, download the -base version of the upstream source.
+    use_variant: Optional[str] = None
+    """If set, use the specified variant of the ontology.
 
     Only meaningful if ``mirror_from`` is not set, that is if the
     upstream source is downloaded from http://purl.obolibrary.org/obo/.
