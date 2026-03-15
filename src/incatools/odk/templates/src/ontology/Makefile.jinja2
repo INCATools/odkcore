@@ -504,7 +504,7 @@ $(PRESEED): $(SRCMERGED)
 $(SRCMERGED): $(EDIT_PREPROCESSED) $(OTHER_SRC)
 	$(ROBOT) remove --input $< --select imports --trim false \
 		 merge $(foreach src, $(OTHER_SRC), --input $(src)) \
-		       --output $@
+		 convert --format ofn --output $@
 
 $(EDIT_PREPROCESSED): $(SRC)
 	$(ROBOT) convert --input $< --format ofn --output $@
@@ -839,8 +839,7 @@ $(COMPONENTSDIR)/{{ component.filename }}: download-component-{{ component.filen
 		$(ROBOT) merge -i $(TMPDIR)/download-component-{{ component.filename }} \{% if component.make_base %}
 		         remove {% for iri in component.base_iris %}--base-iri {{ iri }} \
 		                 {% endfor %}--axioms external --preserve-structure false --trim false \{% endif %}
-		         annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		                  --output $@ ; \
+				 $(ANNOTATE_CONVERT_FILE) ; \
 	fi
 
 .PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
@@ -905,7 +904,7 @@ $(MIRRORDIR)/{{ ont.id }}.owl: download-mirror-{{ ont.id }}
 		                --base-iri {{ iri }} \{% endfor %}{% else %}
 		                --base-iri $(OBOBASE)/{{ ont.id.upper() }} \{% endif %}
 		                --axioms external --preserve-structure false --trim false \
-		         convert {% else %}convert -i $(TMPDIR)/download-mirror-{{ ont.id }}.owl {% endif %}-o $@ ; \
+		         convert {% else %}convert -i $(TMPDIR)/download-mirror-{{ ont.id }}.owl {% endif %}--format ofn -o $@ ; \
 	fi
 
 {%         if ont.is_large -%}
@@ -924,7 +923,8 @@ MERGE_MIRRORS = true
 
 ifeq ($(MERGE_MIRRORS),true)
 $(MIRRORDIR)/merged.owl: $(ALL_MIRRORS)
-	$(ROBOT) merge $(patsubst %, -i %, $^) {% if project.import_group.annotate_defined_by %}--annotate-defined-by true{% endif %} {% if project.import_group.base_merge_drop_equivalent_class_axioms %}remove --axioms equivalent --preserve-structure false {% endif %}-o $@
+	$(ROBOT) merge $(foreach mirror,$^,-i $(mirror)) {% if project.import_group.annotate_defined_by %}--annotate-defined-by true{% endif %} {% if project.import_group.base_merge_drop_equivalent_class_axioms %}remove --axioms equivalent --preserve-structure false {% endif %}\
+	         convert --format ofn -o $@
 .PRECIOUS: $(MIRRORDIR)/merged.owl
 endif
 {%   endif -%}
