@@ -193,7 +193,7 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
     # First take care of stubs, if needed
     update_stubs(obj)
 
-    # Then all the other changes
+    # Then all the other simple changes
     changes = [
         # old key path               new key path
         ("reasoner", "robot.reasoner"),
@@ -212,6 +212,16 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
                 put_key(obj, new, v)
             else:
                 logging.warning(f"Option {old} is deprecated")
+
+    # Then the more complex changes, that cannot be handled simply by
+    # renaming or moving keys around.
+
+    # `use_base: True` ==> `use_variant: base`
+    if "import_group" in obj:
+        for imp in obj["import_group"]["products"]:
+            use_base = imp.pop("use_base", False)
+            if use_base:
+                imp["use_variant"] = "base"
 
 
 def pop_key(obj: Dict[str, Any], path: str) -> Optional[str]:
