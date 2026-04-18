@@ -32,6 +32,11 @@ import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ proj
 {%         endfor -%}
 {%       endif -%}
 {%     endif -%}
+{%     if project.components is defined -%}
+{%       for component in project.components.products -%}
+import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/components/{{ component.filename }}
+{%       endfor -%}
+{%     endif -%}
 {%     if project.use_dosdps -%}
 import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/patterns/definitions.owl
 {%       if project.import_pattern_ontology -%}
@@ -85,7 +90,11 @@ Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ proj
 {%         endfor -%}
 {%       endif -%}
 {%     endif %}
-
+{%     if project.components is defined -%}
+{%       for component in project.components.products -%}
+Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/components/{{ component.filename }}>)
+{%       endfor -%}
+{%     endif -%}
 {%     if project.use_dosdps -%}
 Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/patterns/definitions.owl>)
 {%       if project.import_pattern_ontology -%}
