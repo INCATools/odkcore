@@ -23,9 +23,12 @@ jobs:
     strategy:
       matrix:
         # We run the seeding tests using a "native" ODK environments;
-        # those will never be supported on Windows, but they SHOULD
-        # work on x86 GNU/Linux and both x86 and arm64 macOS.
-        os: [ ubuntu-latest, macos-15, macos-15-intel ]
+        # those will never be supported on Windows, but they SHOULD work
+        # on x86 GNU/Linux and both x86 and arm64 macOS.
+        # However we do NOT routinely test on x64 macOS because GitHub
+        # Actions runners for that platform are twice slower than the
+        # the runners for arm64 macOS, and it is just not worth it.
+        os: [ ubuntu-latest, macos-15 ]
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
