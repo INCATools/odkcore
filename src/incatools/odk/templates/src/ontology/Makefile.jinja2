@@ -1278,7 +1278,7 @@ $(TRANSLATIONSDIR)/%.synonyms.owl: $(TRANSLATIONSDIR)/%.synonyms.tsv
 			--ontology-iri $(ONTBASE)/translations/$*.synonyms.owl \
 			-V $(ONTBASE)/releases/$(VERSION)/translations/$*.synonyms.owl \
 			--annotation owl:versionInfo $(VERSION) \
-		convert -f owl --output $@
+		convert --format ofn --output $@
 .PRECIOUS: $(TRANSLATIONSDIR)/%.synonyms.owl
 
 $(TRANSLATIONSDIR)/%.babelon.owl: $(TRANSLATIONSDIR)/%-preprocessed.babelon.tsv
@@ -1288,7 +1288,7 @@ $(TRANSLATIONSDIR)/%.babelon.owl: $(TRANSLATIONSDIR)/%-preprocessed.babelon.tsv
 			--ontology-iri $(ONTBASE)/translations/$*.babelon.owl \
 			-V $(ONTBASE)/releases/$(VERSION)/translations/$*.babelon.owl \
 			--annotation owl:versionInfo $(VERSION) \
-		convert -f owl --output $@
+		convert --format ofn --output $@
 	@rm $@.tmp
 .PRECIOUS: $(TRANSLATIONSDIR)/%.babelon.owl
 
