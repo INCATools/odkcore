@@ -70,7 +70,7 @@ def context2csv(context) -> None:
         raise click.ClickException("No @context in supposed context file")
 
     print("prefix,base")
-    for prefix_name, url_prefix in context["@context"].items():
+    for prefix_name, url_prefix in ctx["@context"].items():
         print(f"{prefix_name},{url_prefix}")
 
 
