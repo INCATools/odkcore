@@ -1,3 +1,15 @@
+Changes in odk-core 0.1.4 (2026-05-03)
+--------------------------------------
+
+  * Fix missing `mkdocs` packages as `workflows` dependencies.
+  * Add the `odk-helper download` subcommand and refactor downloading
+    rules to use it.
+  * Always use GitHub-CLI for public releases to GitHub.
+  * Avoid here-string in run.sh.
+  * Fix the omission of component imports when seeding the -edit file.
+  * Replace `use_base` option by a generic `use_variant` option.
+  * Use OFN as the intermediate format more widely.
+
 Changes in odk-core 0.1.3 (2025-12-24)
 --------------------------------------
 
