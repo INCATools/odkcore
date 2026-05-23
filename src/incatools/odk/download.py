@@ -161,9 +161,6 @@ def download_file(
             elif response.status_code == 304:
                 logging.info(f"{output.name}: Not modified at {url}")
                 return 304
-            elif response.status_code == 404:
-                logging.warning(f"{output.name}: Not found at {url}")
-                return 404
             elif response.status_code in RETRIABLE_HTTP_ERRORS and n_try < max_retry:
                 n_try += 1
                 logging.warning(
