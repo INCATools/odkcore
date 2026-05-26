@@ -181,8 +181,10 @@ def download_file(
                 raise DownloadError(f"Timeout when connecting to {hostname}")
         except requests.exceptions.ConnectionError:
             raise DownloadError(f"Cannot connect to {hostname}")
-        except requests.exceptions.HTTPError:
-            raise DownloadError(f"HTTP error when downloading {url}")
+        except requests.exceptions.HTTPError as e:
+            raise DownloadError(
+                f"HTTP {e.response.status_code} error when downloading {url}"
+            )
         except requests.exceptions.ReadTimeout:
             raise DownloadError(f"Timeout when downloading {url}")
 
