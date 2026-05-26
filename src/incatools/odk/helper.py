@@ -206,6 +206,7 @@ def download(url, output, reference, cache_info, max_retry, try_gzip) -> None:
 
     for i, attempt in enumerate(attempts):
         try:
+            logging.info(f"{output.name}: Trying download from <{attempt[0]}>")
             status = download_file(attempt[0], output, info, max_retry, attempt[1])
             if status == 200:
                 info.to_file(cache_info)
@@ -215,3 +216,7 @@ def download(url, output, reference, cache_info, max_retry, try_gzip) -> None:
         except DownloadError as e:
             if i == len(attempts) - 1:
                 raise click.ClickException(f"Cannot download {url}: {e}")
+            else:
+                logging.warning(
+                    f"{output.name}: Download failed from <{attempt[0]}>: {e}"
+                )
