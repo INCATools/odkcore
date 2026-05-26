@@ -213,5 +213,5 @@ def download(url, output, reference, cache_info, max_retry, try_gzip) -> None:
             elif status == 304:
                 return
         except DownloadError as e:
-            if i == len(attempt) - 1:
+            if i == len(attempts) - 1:
                 raise click.ClickException(f"Cannot download {url}: {e}")
