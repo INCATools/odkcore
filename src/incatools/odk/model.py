@@ -1143,6 +1143,9 @@ class OntologyProject(JsonSchemaMixin):
     release_diff: bool = False
     """Generates a diff with the previous release."""
 
+    orcidio_support: bool = False
+    """Extracts ORCIDIO individuals representing the contributors to the ontology."""
+
     robot: RobotOptionsGroup = field(default_factory=lambda: RobotOptionsGroup())
     """ROBOT-related options."""
 

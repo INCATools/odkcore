@@ -249,7 +249,7 @@ IMPORTS = {% for imp in project.import_group.products %} {{ imp.id }}{% endfor %
 {% else %}
 IMPORTS =
 {% endif %}
-IMPORT_ROOTS = {% if project.import_group.use_base_merging %} $(IMPORTDIR)/merged_import{% else %}$(patsubst %, $(IMPORTDIR)/%_import, $(IMPORTS)){% endif %}
+IMPORT_ROOTS = {% if project.import_group.use_base_merging %} $(IMPORTDIR)/merged_import{% else %}$(patsubst %, $(IMPORTDIR)/%_import, $(IMPORTS)){% endif %}{% if project.orcidio_support %} $(IMPORTDIR)//orcidio_import{% endif %}
 IMPORT_OWL_FILES = $(foreach n,$(IMPORT_ROOTS), $(n).owl)
 {%- if project.import_group.export_obo %}
 IMPORT_OBO_FILES = $(foreach n,$(IMPORT_ROOTS), $(n).obo)
@@ -785,6 +785,20 @@ no-mirror-refresh-%:
 		IMP=true IMP_LARGE=true MIR=false PAT=false $(IMPORTDIR)/$*_import.owl
 
 {% endif %}{# !project.import_group is defined -#}
+
+{% if project.orcidio_support -%}
+# ----------------------------------------
+# ORCIDIO module
+# ----------------------------------------
+
+ifeq ($(IMP),true)
+$(IMPORTDIR)/orcidio_import.owl: $(SRCMERGED) | all_robot_plugins
+	$(ROBOT) odk:extract-orcids -i $(SRCMERGED) \
+		 $(ANNOTATE_CONVERT_FILE)
+
+endif
+
+{% endif -%}
 
 {% if project.components is not none -%}
 # ----------------------------------------
