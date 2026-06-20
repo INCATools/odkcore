@@ -249,7 +249,7 @@ IMPORTS = {% for imp in project.import_group.products %} {{ imp.id }}{% endfor %
 {% else %}
 IMPORTS =
 {% endif %}
-IMPORT_ROOTS = {% if project.import_group.use_base_merging %} $(IMPORTDIR)/merged_import{% else %}$(patsubst %, $(IMPORTDIR)/%_import, $(IMPORTS)){% endif %}{% if project.orcidio_support %} $(IMPORTDIR)//orcidio_import{% endif %}
+IMPORT_ROOTS = {% if project.import_group.use_base_merging %} $(IMPORTDIR)/merged_import{% else %}$(patsubst %, $(IMPORTDIR)/%_import, $(IMPORTS)){% endif %}{% if project.orcidio_support %} $(IMPORTDIR)/orcidio_import{% endif %}
 IMPORT_OWL_FILES = $(foreach n,$(IMPORT_ROOTS), $(n).owl)
 {%- if project.import_group.export_obo %}
 IMPORT_OBO_FILES = $(foreach n,$(IMPORT_ROOTS), $(n).obo)
@@ -792,9 +792,25 @@ no-mirror-refresh-%:
 # ----------------------------------------
 
 ifeq ($(IMP),true)
-$(IMPORTDIR)/orcidio_import.owl: $(SRCMERGED) | all_robot_plugins
-	$(ROBOT) odk:extract-orcids -i $(SRCMERGED) \
+$(IMPORTDIR)/orcidio_import.owl: $(SRCMERGED) $(MIRRORDIR)/orcidio.owl | all_robot_plugins
+	$(ROBOT) odk:extract-orcids --input $(SRCMERGED) \
+	                            --orcid-file $(MIRRORDIR)/orcidio.owl \
 		 $(ANNOTATE_CONVERT_FILE)
+
+endif
+
+ifeq ($(MIR),true)
+.PHONY: download-mirror-orcidio
+download-mirror-orcidio: | $(TMPDIR) $(MIRRORDIR)
+	@odk-helper download --output $(TMPDIR)/$@.owl \
+	                    --reference $(MIRRORDIR)/orcidio.owl{% if project.import_group is defined %} \
+	                    --max-retry {{ project.import_group.mirror_retry_download }}{% endif %} \
+	                    https://w3id.org/orcidio/orcidio.owl
+
+$(MIRRORDIR)/orcidio.owl: download-mirror-orcidio
+	@if [ -f $(TMPDIR)/download-mirror-orcidio.owl ]; then \
+		cp $(TMPDIR)/download-mirror-orcidio.owl $@ ; \
+	fi
 
 endif
 
