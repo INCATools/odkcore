@@ -791,10 +791,17 @@ no-mirror-refresh-%:
 # ORCIDIO module
 # ----------------------------------------
 
+# By default, the ORCIDIO module is seeded from ORCID references in ALL
+# IRI-valued annotations in the ontology, regardless of the annotation
+# property. To seed only from annotations using specific properties,
+# override the following variable with the desired list of properties.
+ORCIDIO_PROPERTIES =
+
 ifeq ($(IMP),true)
 $(IMPORTDIR)/orcidio_import.owl: $(SRCMERGED) $(MIRRORDIR)/orcidio.owl | all_robot_plugins
 	$(ROBOT) odk:extract-orcids --input $(SRCMERGED) \
 	                            --orcid-file $(MIRRORDIR)/orcidio.owl \
+	                            $(foreach p, $(ORCIDIO_PROPERTIES),--property $(p)) \
 		 $(ANNOTATE_CONVERT_FILE)
 
 endif
