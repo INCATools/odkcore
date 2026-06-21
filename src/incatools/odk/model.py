@@ -1143,6 +1143,16 @@ class OntologyProject(JsonSchemaMixin):
     release_diff: bool = False
     """Generates a diff with the previous release."""
 
+    orcidio_support: bool = False
+    """Enables the automatic production of an ORCIDIO import module.
+
+    If enabled, this option will cause the build pipeline to (1) scan
+    the ontology for references to ORCID identifiers in all IRI-valued
+    annotations, and (2) create a orcidio_import.owl import module
+    containing all ORCIDIO individuals corresponding to the referenced
+    ORCID identifiers.
+    """
+
     robot: RobotOptionsGroup = field(default_factory=lambda: RobotOptionsGroup())
     """ROBOT-related options."""
 

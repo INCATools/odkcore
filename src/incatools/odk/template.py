@@ -394,6 +394,8 @@ class Generator(object):
             cmd += f" --add {base}/patterns/definitions.owl"
             if self.project.import_pattern_ontology:
                 cmd += f" --add {base}/patterns/pattern.owl"
+        if self.project.orcidio_support:
+            cmd += f" --add {base}/imports/orcidio_import.owl"
 
         if self.project.edit_format == "owl":
             cmd += f" convert -f ofn -o {self.project.id}-edit.owl"
