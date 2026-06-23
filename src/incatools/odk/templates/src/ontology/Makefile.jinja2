@@ -736,7 +736,7 @@ $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)
 		        --term {{ p }} \{% endfor %}
 		        --term-file $(IMPORTDIR)/{{ ont.id }}_terms.txt $(T_IMPORTSEED) \
 		        --select complement \
-		        --select "classes individual annotation-properties" \
+		        --select "classes individuals annotation-properties" \
 		 $(ANNOTATE_CONVERT_FILE)
 {%       elif 'custom' -%}
 $(IMPORTDIR)/{{ ont.id }}_import.owl: {% if 'no_mirror' != ont.mirror_type %}$(MIRRORDIR)/{{ ont.id }}.owl{% endif %}
