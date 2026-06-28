@@ -20,12 +20,12 @@ import requests
 from jinja2 import Template
 
 ROBOT_SOURCE = "https://github.com/ontodev/robot/releases/download/v1.9.10/robot.jar"
-DICER_SOURCE = "https://github.com/gouttegd/dicer/releases/download/dicer-0.2.1/dicer-cli-0.2.1.jar"
-SSSOM_SOURCE = "https://github.com/gouttegd/sssom-java/releases/download/sssom-java-1.11.2/sssom-cli-1.11.2.jar"
+DICER_SOURCE = "https://github.com/gouttegd/dicer/releases/download/dicer-0.2.2/dicer-cli-0.2.2.jar"
+SSSOM_SOURCE = "https://github.com/gouttegd/sssom-java/releases/download/sssom-java-1.11.3/sssom-cli-1.11.3.jar"
 DOSDP_SOURCE = "https://github.com/INCATools/dosdp-tools/releases/download/v0.20.0/dosdp-tools-0.20.0.tgz"
 RELGR_SOURCE = "https://github.com/INCATools/relation-graph/releases/download/v2.3.4/relation-graph-cli-2.3.4.tgz"
 ODK_PLUGIN_SOURCE = "https://github.com/INCATools/odk-robot-plugin/releases/download/odk-robot-plugin-0.3.3/odk.jar"
-SSSOM_PLUGIN_SOURCE = "https://github.com/gouttegd/sssom-java/releases/download/sssom-java-1.11.2/sssom-robot-plugin-1.11.2.jar"
+SSSOM_PLUGIN_SOURCE = "https://github.com/gouttegd/sssom-java/releases/download/sssom-java-1.11.3/sssom-robot-plugin-1.11.3.jar"
 OBO_EPM_SOURCE = "https://raw.githubusercontent.com/biopragmatics/bioregistry/main/exports/contexts/obo.epm.json"
 
 ACTIVATION_TEMPLATE = Path(__file__).parent.resolve() / "activate.jinja2"
