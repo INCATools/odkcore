@@ -23,100 +23,97 @@ CONFIG_HASH=                {{ project.config_hash }}
 {% endif %}
 
 # ----------------------------------------
-# Standard Constants
+# Common variables
 # ----------------------------------------
-# these can be overwritten on the command line
+# These variables are intended to be used throughout the Makefile (and
+# the custom {{ project.id }}.Makefile, if needed). They _may_ be
+# overriden either on the command line or in the custom Makefile, but in
+# most cases this is not recommended.
 
-OBOBASE=                    http://purl.obolibrary.org/obo
-URIBASE=                    {{ project.uribase }}
-ONT=                        {{ project.id }}
-ONTBASE=                    {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}
-EDIT_FORMAT=                {{ project.edit_format|default('owl') }}
-SRC =                       $(ONT)-edit.$(EDIT_FORMAT)
-MAKE_FAST=                  $(MAKE) IMP=false PAT=false COMP=false MIR=false
-CATALOG=                    {{ project.catalog_file }}
-{% if project.use_context -%}
-CONTEXT_FILE =              config/context.json
+# Project settings
+OBOBASE                   = http://purl.obolibrary.org/obo
+URIBASE                   = {{ project.uribase }}
+ONT                       = {{ project.id }}
+ONTBASE                   = {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}
+EDIT_FORMAT               = {{ project.edit_format|default('owl') }}
+FORMATS                   = $(sort {% for format in project.export_formats %} {{ format }}{% endfor %} owl)
+RELEASE_ARTEFACTS         = $(sort {% for release in project.release_artefacts %}{% if release.startswith('custom-') %}{{ release | replace("custom-","")}}{% else %}$(ONT)-{{ release }}{% endif %} {% endfor %})
+
+# Directories
+RELEASEDIR                = ../..
+DOCSDIR                   = ../../docs
+REPORTDIR                 = reports
+TMPDIR                    = tmp
+MIRRORDIR                 = mirror
+IMPORTDIR                 = imports
+SUBSETDIR                 = subsets
+SCRIPTSDIR                = ../scripts
+UPDATEREPODIR             = target
+SPARQLDIR                 = ../sparql
+COMPONENTSDIR             = components
+TEMPLATEDIR               = ../templates
+{% if project.use_dosdps -%}
+PATTERNDIR                = ../patterns
 {% endif -%}
-ROBOT=                      robot --catalog $(CATALOG){% if project.use_context %} --add-prefixes $(CONTEXT_FILE){% endif %}
-REASONER=                   {{ project.robot.reasoner }}
-{# Kept for backwards compatibility with existing custom Makefiles -#}
-{% if project.owltools_memory|length -%}
-OWLTOOLS_MEMORY =           {{ project.owltools_memory }}
+{% if project.use_mappings -%}
+MAPPINGDIR                = ../mappings
 {% endif -%}
-OWLTOOLS =                  {% if project.owltools_memory|length %}OWLTOOLS_MEMORY=$(OWLTOOLS_MEMORY) {% endif %}owltools --use-catalog
-RELEASEDIR=                 ../..
-DOCSDIR=                    ../../docs
-REPORTDIR=                  reports
-TEMPLATEDIR=                ../templates
-TMPDIR=                     tmp
-MIRRORDIR=                  mirror
-IMPORTDIR=                  imports
-SUBSETDIR=                  subsets
-SCRIPTSDIR=                 ../scripts
-UPDATEREPODIR=              target
-SPARQLDIR =                 ../sparql
-EXTENDED_PREFIX_MAP=        $(TMPDIR)/obo.epm.json
-COMPONENTSDIR =             components
-ODK_RESOURCES_DIR ?=        /tools/resources
-{%- if project.robot.report.custom_profile %}
-ROBOT_PROFILE =             profile.txt
-{%- endif %}
-REPORT_FAIL_ON =            {{ project.robot.report.fail_on|default('None') }}
-REPORT_LABEL =              {% if project.robot.report.use_labels|default(true) %}-l true{% endif %}
-REPORT_PROFILE_OPTS =       {% if project.robot.report.custom_profile %}--profile $(ROBOT_PROFILE){% endif %}
-OBO_FORMAT_OPTIONS =        {{ project.robot.obo_format_options }}
-SPARQL_VALIDATION_CHECKS =  {% for x in project.robot.report.custom_sparql_checks|default(['owldef-self-reference', 'iri-range', 'label-with-iri', 'multiple-replaced_by']) %}{{ x }} {% endfor %}
-SPARQL_EXPORTS =            {% for x in project.robot.report.custom_sparql_exports|default(['basic-report', 'class-count-by-prefix', 'edges', 'xrefs', 'obsoletes', 'synonyms']) %}{{ x }} {% endfor %}
-ODK_VERSION_MAKEFILE =      {% if env is defined %}{{env['ODK_VERSION'] or "Unknown" }}{% else %}"Unknown"{% endif %}
-RELAX_OPTIONS =             {{ project.robot.relax_options }}
-REDUCE_OPTIONS =            {{ project.robot.reduce_options }}
-
-TODAY ?=                    $(shell date +%Y-%m-%d)
-OBODATE ?=                  $(shell date +'%d:%m:%Y %H:%M')
-VERSION=                    $(TODAY)
-ANNOTATE_ONTOLOGY_VERSION = annotate -V $(ONTBASE)/releases/$(VERSION)/$@ --annotation owl:versionInfo $(VERSION)
-ANNOTATE_CONVERT_FILE =     annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) convert -f {{ project.import_component_format|default('ofn') }} --output $@.tmp.owl && mv $@.tmp.owl $@
-OTHER_SRC =                 {% if project.use_dosdps -%}$(PATTERNDIR)/definitions.owl {% endif -%}{% if project.components is defined -%}{% for component in project.components.products -%}$(COMPONENTSDIR)/{{ component.filename }} {% endfor -%}{% endif %}
-ONTOLOGYTERMS =             $(TMPDIR)/ontologyterms.txt
-EDIT_PREPROCESSED =         $(TMPDIR)/$(ONT)-preprocess.owl
-{% if project.use_context and 'db' in project.export_formats -%}
-CONTEXT_FILE_CSV =          $(TMPDIR)/context.csv
-{%- endif -%}
-
-{%- if project.use_dosdps %}
-PATTERNDIR=                 ../patterns
-PATTERN_TESTER=             dosdp validate -i
-DOSDPT=                     dosdp-tools
-PATTERN_RELEASE_FILES=      $(PATTERNDIR)/definitions.owl $(PATTERNDIR)/pattern.owl
-{% endif %}
-
-{%- if project.use_mappings %}
-MAPPINGDIR=                 ../mappings
-MAPPING_TESTER=             sssom validate
-SSSOMPY=                    sssom
-MAPPINGS=                   {% if project.sssom_mappingset_group is not none %}{%- for mapping in project.sssom_mappingset_group.products %}{{ mapping.id }} {% endfor %}{% endif %}
-MAPPING_RELEASE_FILES=      $(foreach n,$(MAPPINGS), $(MAPPINGDIR)/$(n).sssom.tsv)
-{% endif %}
 {% if project.bridge_group is not none -%}
-BRIDGEDIR=                  bridges
+BRIDGEDIR                 = bridges
 {% endif -%}
+{% if project.use_translations -%}
+TRANSLATIONSDIR=          = ../translations
+{% endif -%}
+ODK_RESOURCES_DIR        ?= /tools/resources
 
-{%- if project.use_translations %}
-TRANSLATIONSDIR=            ../translations
-BABELONPY=                  babelon -q
-TRANSLATIONS_OWL=           {%- for translation in project.babelon_translation_group.products %}$(TRANSLATIONSDIR)/{{ translation.id }}.babelon.owl {% if translation.include_robot_template_synonyms %} $(TRANSLATIONSDIR)/{{ translation.id }}.synonyms.owl {% endif %}{% endfor %}
-TRANSLATIONS_TSV=           {%- for translation in project.babelon_translation_group.products %}$(TRANSLATIONSDIR)/{{ translation.id }}-preprocessed.babelon.tsv {% endfor %}
-TRANSLATION_FILES=			{%- if project.babelon_translation_group is not none %}{% if project.babelon_translation_group.release_merged_translations %}$(TRANSLATIONSDIR)/$(ONT)-all.babelon.tsv $(TRANSLATIONSDIR)/$(ONT)-all.babelon.json{% endif %}{% endif %}
-{% endif %}
+# Files
+SRC                       = $(ONT)-edit.$(EDIT_FORMAT)
+OTHER_SRC                 = {% if project.use_dosdps %}$(PATTERNDIR)/definitions.owl {% endif %}{% if project.components is defined %}{% for component in project.components.products %}$(COMPONENTSDIR)/{{ component.filename }} {% endfor %}{% endif %}
+CATALOG                   = {{ project.catalog_file }}
+{% if project.use_context -%}
+CONTEXT_FILE              = config/context.json
+{% endif -%}
+EXTENDED_PREFIX_MAP       = $(TMPDIR)/obo.epm.json
+ONTOLOGYTERMS             = $(TMPDIR)/ontologyterms.txt
+EDIT_PREPROCESSED         = $(TMPDIR)/$(ONT)-preprocess.owl
+SRCMERGED                 = $(TMPDIR)/merged-$(ONT)-edit.ofn
 
-FORMATS = $(sort {% for format in project.export_formats %} {{ format }}{% endfor %} owl)
-FORMATS_INCL_TSV = $(sort $(FORMATS) tsv)
-RELEASE_ARTEFACTS = $(sort {% for release in project.release_artefacts %}{% if release.startswith('custom-') %}{{ release | replace("custom-","")}}{% else %}$(ONT)-{{ release }}{% endif %} {% endfor %})
+# ROBOT Options
+ROBOT                     = robot --catalog $(CATALOG){% if project.use_context %} --add-prefixes $(CONTEXT_FILE){% endif %}
+REASONER                  = {{ project.robot.reasoner }}
+REPORT_FAIL_ON            = {{ project.robot.report.fail_on|default('None') }}
+REPORT_LABEL              = {% if project.robot.report.use_labels|default(true) %}--labels true{% endif %}
+REPORT_PROFILE_OPTS       = {% if project.robot.report.custom_profile %}--profile profile.txt{% endif %}
+OBO_FORMAT_OPTIONS        = {{ project.robot.obo_format_options }}
+RELAX_OPTIONS             = {{ project.robot.relax_options }}
+REDUCE_OPTIONS            = {{ project.robot.reduce_options }}
 
+{# Kept for backward compatibility with existing custom Makefiles -#}
+# OWLTools Options
+{% if project.owltools_memory|length -%}
+OWLTOOLS_MEMORY           = {{ project.owltools_memory }}
+{% endif -%}
+OWLTOOLS                  = {% if project.owltools_memory|length %}OWLTOOLS_MEMORY=$(OWLTOOLS_MEMORY) {% endif %}owltools --use-catalog
+
+# Date & version
+TODAY                    ?= $(shell date +%Y-%m-%d)
+{% if project.release_date -%}
+OBODATE                  ?= $(shell date +'%d:%m:%Y %H:%M')
+{% endif -%}
+VERSION                   = $(TODAY)
+
+# Commands
+MAKE_FAST                 = $(MAKE) IMP=false PAT=false COMP=false MIR=false
+ANNOTATE_ONTOLOGY_VERSION = annotate --version-iri $(ONTBASE)/releases/$(VERSION)/$@ \
+			             --annotation owl:versionInfo $(VERSION)
+ANNOTATE_CONVERT_FILE     = $(ANNOTATE_ONTOLOGY_VERSION) --ontology-iri $(ONTBASE)/$@ \
+			    convert --format {{ project.import_component_format|default('ofn') }} \
+			            --output $@
+
+# Debugging
 ifeq ($(ODK_DEBUG),yes)
-ODK_DEBUG_FILE = debug.log
-SHELL = $(SCRIPTSDIR)/run-command.sh
+ODK_DEBUG_FILE            = debug.log
+SHELL                     = $(SCRIPTSDIR)/run-command.sh
 endif
 
 # ----------------------------------------
@@ -172,7 +169,7 @@ reason_test: $(EDIT_PREPROCESSED)
 
 .PHONY: odkversion
 odkversion:
-	@echo "ODK Makefile $(ODK_VERSION_MAKEFILE)"
+	@echo "ODK Makefile {% if env is defined %}{{env['ODK_VERSION'] or "Unknown" }}{% else %}"Unknown"{% endif %}"
 	@odk-helper info --tools
 
 {%- if project.config_hash %}
@@ -235,7 +232,6 @@ $(ROBOT_PLUGINS_DIRECTORY)/{{ plugin.name }}.jar:
 MAIN_PRODUCTS = $(sort $(foreach r,$(RELEASE_ARTEFACTS), $(r)) $(ONT))
 MAIN_GZIPPED  = {% if project.gzip_main %}$(foreach f,$(FORMATS), $(ONT).$(f).gz){% endif %}
 MAIN_FILES    = $(foreach n,$(MAIN_PRODUCTS), $(foreach f,$(FORMATS), $(n).$(f))) $(MAIN_GZIPPED)
-SRCMERGED     = $(TMPDIR)/merged-$(ONT)-edit.ofn
 
 .PHONY: all_main
 all_main: $(MAIN_FILES)
@@ -272,7 +268,7 @@ SUBSETS = {% for x in project.subset_group.products %} {{ x.id }}{% endfor %}
 SUBSETS =
 {% endif %}
 SUBSET_ROOTS = $(patsubst %, $(SUBSETDIR)/%, $(SUBSETS))
-SUBSET_FILES = $(foreach n,$(SUBSET_ROOTS), $(foreach f,$(FORMATS_INCL_TSV), $(n).$(f)))
+SUBSET_FILES = $(foreach n,$(SUBSET_ROOTS), $(foreach f,$(sort $(FORMATS) tsv), $(n).$(f)))
 
 .PHONY: all_subsets
 all_subsets: $(SUBSET_FILES)
@@ -344,6 +340,7 @@ validate_profile_%: $(REPORTDIR)/validate_profile_owl2dl_%.txt
 # these live in the ../sparql directory, and have suffix -violation.sparql
 # adding the name here will make the violation check live.
 
+SPARQL_VALIDATION_CHECKS =  {% for x in project.robot.report.custom_sparql_checks|default(['owldef-self-reference', 'iri-range', 'label-with-iri', 'multiple-replaced_by']) %}{{ x }} {% endfor %}
 SPARQL_VALIDATION_QUERIES = $(foreach V,$(SPARQL_VALIDATION_CHECKS),$(SPARQLDIR)/$(V)-violation.sparql)
 
 sparql_test: {% for x in project.robot.report.sparql_test_on|default(["edit"]) %} {% if x=="edit" %}$(SRCMERGED){% else %}{{ x }}{% endif %}{% endfor %} | $(REPORTDIR)
@@ -1003,6 +1000,8 @@ $(SUBSETDIR)/%.json: $(SUBSETDIR)/%.owl
 # Sparql queries: Table exports / Query Reports
 # ---------------------------------------------
 
+SPARQL_EXPORTS =            {% for x in project.robot.report.custom_sparql_exports|default(['basic-report', 'class-count-by-prefix', 'edges', 'xrefs', 'obsoletes', 'synonyms']) %}{{ x }} {% endfor %}
+
 SPARQL_EXPORTS_ARGS = $(foreach V,$(SPARQL_EXPORTS),-s $(SPARQLDIR)/$(V).sparql $(REPORTDIR)/$(V).tsv)
 # This combines all into one single command
 
@@ -1016,6 +1015,10 @@ endif
 # ----------------------------------------
 # DOSDP Templates/Patterns
 # ----------------------------------------
+
+PATTERN_TESTER = dosdp validate -i
+DOSDPT = dosdp-tools
+PATTERN_RELEASE_FILES = $(PATTERNDIR)/definitions.owl $(PATTERNDIR)/pattern.owl
 
 ALL_PATTERN_FILES=$(wildcard $(PATTERNDIR)/dosdp-patterns/*.yaml)
 ALL_PATTERN_NAMES=$(strip $(patsubst %.yaml,%, $(notdir $(wildcard $(PATTERNDIR)/dosdp-patterns/*.yaml))))
@@ -1171,6 +1174,9 @@ endif
 # SSSOM Mapping Files
 # ----------------------------------------
 
+MAPPING_TESTER = sssom validate
+SSSOMPY = sssom
+
 validate-sssom-%:
 	tsvalid $(MAPPINGDIR)/$*.sssom.tsv --comment "#"
 	$(MAPPING_TESTER) $(MAPPINGDIR)/$*.sssom.tsv
@@ -1262,6 +1268,11 @@ $(BRIDGEDIR)/{{ bridge.id }}.owl:
 # ----------------------------------------
 # Babelon Translation Files
 # ----------------------------------------
+
+BABELONPY = babelon -q
+TRANSLATIONS_OWL = {%- for translation in project.babelon_translation_group.products %}$(TRANSLATIONSDIR)/{{ translation.id }}.babelon.owl {% if translation.include_robot_template_synonyms %} $(TRANSLATIONSDIR)/{{ translation.id }}.synonyms.owl {% endif %}{% endfor %}
+TRANSLATIONS_TSV = {%- for translation in project.babelon_translation_group.products %}$(TRANSLATIONSDIR)/{{ translation.id }}-preprocessed.babelon.tsv {% endfor %}
+TRANSLATION_FILES =	{%- if project.babelon_translation_group is not none %}{% if project.babelon_translation_group.release_merged_translations %}$(TRANSLATIONSDIR)/$(ONT)-all.babelon.tsv $(TRANSLATIONSDIR)/$(ONT)-all.babelon.json{% endif %}{% endif %}
 
 {%- if project.babelon_translation_group is not none %}
 
@@ -1361,7 +1372,9 @@ $(TRANSLATIONSDIR)/%.babelon.json: $(TRANSLATIONSDIR)/%.babelon.tsv
 {% endfor -%}
 
 {% if 'db' in project.export_formats -%}
+
 {% if project.use_context -%}
+CONTEXT_FILE_CSV = $(TMPDIR)/context.csv
 $(CONTEXT_FILE_CSV): $(CONTEXT_FILE) | $(TMPDIR)
 	@odk-helper context2csv $< > $@
 {% endif -%}
