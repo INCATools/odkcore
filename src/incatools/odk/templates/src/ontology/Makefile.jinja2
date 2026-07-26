@@ -48,7 +48,6 @@ MIRRORDIR                 = mirror
 IMPORTDIR                 = imports
 SUBSETDIR                 = subsets
 SCRIPTSDIR                = ../scripts
-UPDATEREPODIR             = target
 SPARQLDIR                 = ../sparql
 COMPONENTSDIR             = components
 TEMPLATEDIR               = ../templates
@@ -1640,7 +1639,7 @@ update_docs:
 .PHONY: clean
 clean:{% if project.use_dosdps %}
 	$(MAKE) pattern_clean{%- endif %}
-	for dir in $(MIRRORDIR) $(TMPDIR) $(UPDATEREPODIR) ; do      \
+	for dir in $(MIRRORDIR) $(TMPDIR) ; do      \
 		reldir=$$(realpath --relative-to=$$(pwd) $$dir) ;    \
 		case $$reldir in .*|"") ;; *) rm -rf $$reldir/* ;; esac \
 	done
