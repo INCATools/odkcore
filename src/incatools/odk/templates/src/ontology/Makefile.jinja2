@@ -79,9 +79,6 @@ SRCMERGED                 = $(TMPDIR)/merged-$(ONT)-edit.ofn
 # ROBOT Options
 ROBOT                     = robot --catalog $(CATALOG){% if project.use_context %} --add-prefixes $(CONTEXT_FILE){% endif %}
 REASONER                  = {{ project.robot.reasoner }}
-REPORT_FAIL_ON            = {{ project.robot.report.fail_on|default('None') }}
-REPORT_LABEL              = {% if project.robot.report.use_labels|default(true) %}--labels true{% endif %}
-REPORT_PROFILE_OPTS       = {% if project.robot.report.custom_profile %}--profile profile.txt{% endif %}
 OBO_FORMAT_OPTIONS        = {{ project.robot.obo_format_options }}
 RELAX_OPTIONS             = {{ project.robot.relax_options }}
 REDUCE_OPTIONS            = {{ project.robot.reduce_options }}
@@ -239,6 +236,101 @@ $(ROBOT_PLUGINS_DIRECTORY)/{{ plugin.name }}.jar:
 
 {% endif %}
 # ----------------------------------------
+# Quality control
+# ----------------------------------------
+
+# ROBOT reports
+# ----------------------------------------
+
+OBO_REPORT              ={% for x in project.robot.report.report_on|default(["edit"]) -%}
+                         {% if x=="edit" %} $(SRC){% else %} {{ x }}{% endif %}-obo-report{% endfor %}
+{% if project.robot.report.upper_ontology is defined and project.robot.report.upper_ontology -%}
+ALIGNMENT_REPORT        ={% for x in project.robot.report.report_on|default(["edit"]) -%}
+                         {% if x=="edit" %} $(SRC){% else %} {{ x }}{% endif %}-align-report{% endfor %}
+{% endif -%}
+REPORTS                 = $(OBO_REPORT){% if project.robot.report.upper_ontology is defined and project.robot.report.upper_ontology -%}
+                         {# #} $(ALIGNMENT_REPORT){% endif %}
+REPORT_FILES            = $(foreach report, $(REPORTS), $(REPORTDIR)/$(report).tsv)
+REPORT_FAIL_ON          = {{ project.robot.report.fail_on|default('None') }}
+REPORT_LABEL            = {% if project.robot.report.use_labels|default(true) %}--labels true{% endif %}
+REPORT_PROFILE_OPTS     = {% if project.robot.report.custom_profile %}--profile profile.txt{% endif %}
+
+.PHONY: robot_reports
+robot_reports: $(REPORT_FILES)
+
+.PHONY: all_reports
+all_reports: custom_reports robot_reports
+
+$(REPORTDIR)/%-obo-report.tsv: % | $(REPORTDIR)
+	$(ROBOT) report --input $< $(REPORT_LABEL) $(REPORT_PROFILE_OPTS) \
+		        --fail-on $(REPORT_FAIL_ON) \
+			{% if project.robot.report.use_base_iris -%}
+			{%   if project.namespaces is not none -%}
+			{%     for iri in project.namespaces %}--base-iri {{ iri }} \
+			{%     endfor -%}
+			{%   else -%}--base-iri $(URIBASE)/{{ project.id.upper() }}_ \
+			--base-iri $(URIBASE)/{{ project.id }} \
+			{%   endif -%}
+			{% endif -%}
+			--print 5 --output $@
+
+{% if project.robot.report.upper_ontology is defined and project.robot.report.upper_ontology -%}
+$(REPORTDIR)/%-align-report.tsv: % | $(REPORTDIR) all_robot_plugins
+	$(ROBOT) odk:check-align --input $< --reasoner $(REASONER) \
+		                 --upper-ontology-iri {{ project.robot.report.upper_ontology }} \
+				 {% if project.robot.report.use_base_iris %}--detail BASE-ROOT \
+				 {%   if project.namespaces is not none -%}
+				 {%     for iri in project.namespaces %}--base-iri {{ iri }} \
+				 {%     endfor -%}
+				 {%   else %}--base-iri $(URIBASE)/{{ project.id.upper() }}_ \
+				 --base-iri $(URIBASE)/{{ project.id }} \
+				 {%  endif -%}
+				 {% endif -%}
+				 --report-output $@
+
+{% endif -%}
+
+{% if project.robot.report.custom_profile -%}
+check_for_robot_updates:
+	@odk-helper check-robot-profile
+
+{% endif -%}
+
+# ROBOT OWL profile check
+# ----------------------------------------
+
+# The merge step is necessary to avoid undeclared entity violations.
+$(REPORTDIR)/validate_profile_owl2dl_%.txt: % | $(REPORTDIR)
+	$(ROBOT) merge --input $< \
+		 validate-profile --profile DL \
+		                  --output $@
+.PRECIOUS: $(REPORTDIR)/validate_profile_owl2dl_%.txt
+
+validate_profile_%: $(REPORTDIR)/validate_profile_owl2dl_%.txt
+	@echo "$* profile validation completed."
+
+# SPARQL-based checks
+# ----------------------------------------
+
+# The SPARQL queries used by those checks live in the ../sparql directory,
+# in files whose name is of the form NAME-violation.sparql. Adding the
+# NAME in the list below will enable the corresponding check.
+
+{# FIXME: The default list should be computed in the seeding script, not here. -#}
+SPARQL_VALIDATION_CHECKS  ={% for x in project.robot.report.custom_sparql_checks|default(["owldef-self-reference", "iri-range", "label-with-iri", "multiple-replaced_by"]) %} {{ x }}{% endfor %}
+SPARQL_VALIDATION_QUERIES = $(foreach name, $(SPARQL_VALIDATION_CHECKS), $(SPARQLDIR)/$(name)-violation.sparql)
+
+sparql_test:{% for x in project.robot.report.sparql_test_on|default(["edit"]) %} {% if x =="edit" %}$(SRCMERGED){% else %}{{ x }}{% endif %}{% endfor %} | $(REPORTDIR)
+ifneq ($(SPARQL_VALIDATION_QUERIES),)
+{% for x in project.robot.report.sparql_test_on|default(["edit"]) -%}
+{# #}	$(ROBOT) verify --input {% if x=="edit" %}$(SRCMERGED){% else %}{{ x }}{% endif %} \
+		        --queries $(SPARQL_VALIDATION_QUERIES) \
+			--output-dir $(REPORTDIR)
+{% endfor -%}
+endif
+
+
+# ----------------------------------------
 # Release assets
 # ----------------------------------------
 
@@ -318,94 +410,6 @@ all_bridges: $(BRIDGE_FILES)
 BRIDGE_FILES =
 
 {% endif -%}
-# ----------------------------------------
-# QC Reports & Utilities
-# ----------------------------------------
-
-OBO_REPORT = {% for x in project.robot.report.report_on|default(["edit"]) %} {% if x=="edit" %}$(SRC){% else %}{{ x }}{% endif %}-obo-report{% endfor %}
-ALIGNMENT_REPORT = {% for x in project.robot.report.report_on|default(["edit"]) %} {% if x =="edit" %}$(SRC){% else %}{{ x }}{% endif %}-align-report{% endfor %}
-REPORTS = $(OBO_REPORT){% if project.robot.report.upper_ontology is defined and project.robot.report.upper_ontology %} $(ALIGNMENT_REPORT){% endif %}
-REPORT_FILES = $(patsubst %, $(REPORTDIR)/%.tsv, $(REPORTS))
-
-.PHONY: robot_reports
-robot_reports: $(REPORT_FILES)
-
-.PHONY: all_reports
-all_reports: custom_reports robot_reports
-
-# ----------------------------------------
-# ROBOT OWL Profile checking
-# ----------------------------------------
-
-# The merge step is necessary to avoid undeclared entity violations.
-$(REPORTDIR)/validate_profile_owl2dl_%.txt: % | $(REPORTDIR) $(TMPDIR)
-	$(ROBOT) merge -i $< convert -f ofn -o $(TMPDIR)/validate.ofn
-	$(ROBOT) validate-profile --profile DL -i $(TMPDIR)/validate.ofn -o $@ || { cat $@ && exit 1; }
-.PRECIOUS: $(REPORTDIR)/validate_profile_owl2dl_%.txt
-
-validate_profile_%: $(REPORTDIR)/validate_profile_owl2dl_%.txt
-	echo "$* profile validation completed."
-
-# ----------------------------------------
-# Sparql queries: Q/C
-# ----------------------------------------
-
-# these live in the ../sparql directory, and have suffix -violation.sparql
-# adding the name here will make the violation check live.
-
-SPARQL_VALIDATION_CHECKS =  {% for x in project.robot.report.custom_sparql_checks|default(['owldef-self-reference', 'iri-range', 'label-with-iri', 'multiple-replaced_by']) %}{{ x }} {% endfor %}
-SPARQL_VALIDATION_QUERIES = $(foreach V,$(SPARQL_VALIDATION_CHECKS),$(SPARQLDIR)/$(V)-violation.sparql)
-
-sparql_test: {% for x in project.robot.report.sparql_test_on|default(["edit"]) %} {% if x=="edit" %}$(SRCMERGED){% else %}{{ x }}{% endif %}{% endfor %} | $(REPORTDIR)
-ifneq ($(SPARQL_VALIDATION_QUERIES),)
-  {% for x in project.robot.report.sparql_test_on|default(["edit"]) -%}
-  {%- if x=="edit" -%}
-  {% set input = "$(SRCMERGED)"%}
-  {%- else -%}
-  {% set input = x %}
-  {% endif %}
-	$(ROBOT) verify -i {{ input }} --queries $(SPARQL_VALIDATION_QUERIES) -O $(REPORTDIR)
-  {%- endfor %}
-endif
-
-# ----------------------------------------
-# ROBOT report
-# ----------------------------------------
-
-$(REPORTDIR)/$(SRC)-obo-report.tsv: $(SRCMERGED) | $(REPORTDIR)
-	$(ROBOT) report -i $< $(REPORT_LABEL) $(REPORT_PROFILE_OPTS) --fail-on $(REPORT_FAIL_ON) {% if project.robot.report.use_base_iris %}{% if project.namespaces is not none %}{% for iri in project.namespaces %}--base-iri {{ iri }} {% endfor -%}{% else %}--base-iri $(URIBASE)/{{ project.id.upper() }}_ --base-iri $(URIBASE)/{{ project.id }} {% endif -%}{% endif -%} --print 5 -o $@
-
-$(REPORTDIR)/%-obo-report.tsv: % | $(REPORTDIR)
-	$(ROBOT) report -i $< $(REPORT_LABEL) $(REPORT_PROFILE_OPTS) --fail-on $(REPORT_FAIL_ON) {% if project.robot.report.use_base_iris %}{% if project.namespaces is not none %}{% for iri in project.namespaces %}--base-iri {{ iri }} {% endfor %}{% else %}--base-iri $(URIBASE)/{{ project.id.upper() }}_ --base-iri $(URIBASE)/{{ project.id }} {% endif %}{% endif -%} --print 5 -o $@
-{%- if project.robot.report.upper_ontology is defined and project.robot.report.upper_ontology %}
-
-$(REPORTDIR)/$(SRC)-align-report.tsv: $(SRCMERGED) | $(REPORTDIR) all_robot_plugins
-	$(ROBOT) odk:check-align -i $< --reasoner $(REASONER) \
-		 --upper-ontology-iri {{ project.robot.report.upper_ontology }}
-		 {%- if project.robot.report.use_base_iris %} \
-		 --detail BASE-ROOT \
-		 {% if project.namespaces is not none %}{% for iri in project.namespaces %}--base-iri {{ iri }} \
-		 {% endfor %}{% else %}--base-iri $(URIBASE)/{{ project.id.upper() }}_ --base-iri $(URIBASE)/{{ project.id }} \
-		 {% endif %}{% else %} \
-		 {% endif %}--report-output $@
-
-$(REPORTDIR)/%-align-report.tsv: % | $(REPORTDIR) all_robot_plugins
-	$(ROBOT) odk:check-align -i $< --reasoner $(REASONER) \
-		 --upper-ontology-iri {{ project.robot.report.upper_ontology }}
-		 {%- if project.robot.report.use_base_iris %} \
-		 --detail BASE-ROOT \
-		 {% if project.namespaces is not none %}{% for iri in project.namespaces %}--base-iri {{ iri }} \
-		 {% endfor %}{% else %}--base-iri $(URIBASE)/{{ project.id.upper() }}_ --base-iri $(URIBASE)/{{ project.id }} \
-		 {% endif %}{% else %} \
-		 {% endif %}--report-output $@
-{%- endif %}
-
-check_for_robot_updates:
-{%- if project.robot.report.custom_profile %}
-	@odk-helper check-robot-profile
-{%- else %}
-	echo "You are not using a custom profile, so you are getting the joy of the latest ROBOT report!"
-{% endif %}
 
 # ----------------------------------------
 # Release assets
