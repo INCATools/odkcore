@@ -718,6 +718,93 @@ no-mirror-refresh-%:
 
 {% endif %}{# !project.import_group is defined -#}
 
+{% if project.components is not none -%}
+# ----------------------------------------
+# Components
+# ----------------------------------------
+# Some ontologies contain external and internal components.
+# A component is included in the ontology in its entirety.
+
+ifeq ($(COMP),true)
+
+$(COMPONENTSDIR)/%.owl: $(TMPDIR)/stamp-component-%.owl | $(COMPONENTSDIR)
+	test -f $@ || touch $@
+.PRECIOUS: $(COMPONENTSDIR)/%.owl
+
+$(TMPDIR)/stamp-component-%.owl: | $(TMPDIR)
+	touch $@
+.PRECIOUS: $(TMPDIR)/stamp-component-%.owl
+
+{%   for component in project.components.products -%}
+{%     if component.source is not none -%}
+ifeq ($(MIR),true)
+.PHONY: download-component-{{ component.filename }}
+download-component-{{ component.filename }}: | $(TMPDIR)
+	@odk-helper download --output $(TMPDIR)/$@ \
+	                     --reference $(COMPONENTSDIR)/{{ component.filename }} \
+	                     {{ component.source }}
+
+$(COMPONENTSDIR)/{{ component.filename }}: $(TMPDIR)/stamp-component-{{ component.filename }} download-component-{{ component.filename }}
+	@if [ -f $(TMPDIR)/download-component-{{ component.filename }} ]; then \
+	        $(ROBOT) merge -i $(TMPDIR)/download-component-{{ component.filename }} \{% if component.make_base %}
+	                 remove {% for iri in component.base_iris %}--base-iri {{ iri }} \
+	                        {% endfor %}--axioms external --preserve-structure false --trim false \{% endif %}
+	                        $(ANNOTATE_CONVERT_FILE) ; \
+	fi
+
+.PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
+endif # MIR=true
+
+{%     elif component.use_template -%}
+$(COMPONENTSDIR)/{{ component.filename }}: $(TMPDIR)/stamp-component-{{ component.filename }}{% for template in component.templates %} \
+	        $(TEMPLATEDIR)/{{ template }}{% endfor %}
+	$(ROBOT) template {% if component.template_options is not none %}{{ component.template_options }}{% endif %} \
+	         {% for template in component.templates %}--template $(TEMPLATEDIR)/{{ template }} \
+	         {% endfor %}$(ANNOTATE_CONVERT_FILE)
+.PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
+
+{%     elif component.use_mappings -%}
+$(COMPONENTSDIR)/{{ component.filename }}: $(TMPDIR)/stamp-component-{{ component.filename }}{% for mapping in component.mappings %} \
+	        $(MAPPINGDIR)/{{ mapping }}{% endfor %} \
+	        | all_robot_plugins
+	$(ROBOT) --add-prefix 'sssom: https://w3id.org/sssom/' \
+	         --add-prefix 'semapv: http://w3id.org/semapv/vocab/' \
+	         sssom:inject {% for mapping in component.mappings %}--sssom $(MAPPINGDIR)/{{ mapping }} \
+	                      {% endfor %}--create --direct \
+	         $(ANNOTATE_CONVERT_FILE)
+.PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
+
+{%     endif -%}
+{%   endfor -%}
+endif # COMP=true
+
+.PHONY: all_components
+all_components: $(OTHER_SRC)
+
+.PHONY: recreate-components
+recreate-components:
+	$(MAKE) {% for component in project.components.products %}--assume-new=$(TMPDIR)/stamp-component-{{ component.filename }} \
+	        {% endfor %}COMP=true IMP=false MIR=true PAT=true all_components
+
+.PHONY: no-mirror-recreate-components
+no-mirror-recreate-components:
+	$(MAKE) {% for component in project.components.products %}--assume-new=$(TMPDIR)/stamp-component-{{ component.filename }} \
+	        {% endfor %}COMP=true IMP=false MIR=false PAT=true all_components
+
+.PHONY: recreate-%
+recreate-%:
+	rm -f $(TMPDIR)/download-component-$*.owl.info
+	$(MAKE) --assume-new=$(TMPDIR)/stamp-component-$*.owl \
+	        COMP=true IMP=false MIR=true PAT=true $(COMPONENTSDIR)/$*.owl
+
+.PHONY: no-mirror-recreate-%
+no-mirror-recreate-%:
+	$(MAKE) --assume-new=$(TMPDIR)/stamp-component-$*.owl \
+	        COMP=true IMP=false MIR=false PAT=true $(COMPONENTSDIR)/$*.owl
+
+
+{% endif %}{# ! project.components is not none -#}
+
 # ----------------------------------------
 # Release assets
 # ----------------------------------------
@@ -923,85 +1010,6 @@ endif
 
 {% endif -%}
 
-{% if project.components is not none -%}
-# ----------------------------------------
-# Components
-# ----------------------------------------
-# Some ontologies contain external and internal components. A component is included in the ontology in its entirety.
-
-ifeq ($(COMP),true)
-.PHONY: all_components
-all_components: $(OTHER_SRC)
-
-.PHONY: recreate-components
-recreate-components:
-	$(MAKE) {% for component in project.components.products %}--assume-new=$(TMPDIR)/stamp-component-{{ component.filename }} \
-		{% endfor %}COMP=true IMP=false MIR=true PAT=true all_components
-
-.PHONY: no-mirror-recreate-components
-no-mirror-recreate-components:
-	$(MAKE) {% for component in project.components.products %}--assume-new=$(TMPDIR)/stamp-component-{{ component.filename }} \
-		{% endfor %}COMP=true IMP=false MIR=false PAT=true all_components
-
-.PHONY: recreate-%
-recreate-%:
-	rm -f $(TMPDIR)/download-component-$*.owl.info
-	$(MAKE) --assume-new=$(TMPDIR)/stamp-component-$*.owl \
-		COMP=true IMP=false MIR=true PAT=true $(COMPONENTSDIR)/$*.owl
-
-.PHONY: no-mirror-recreate-%
-no-mirror-recreate-%:
-	$(MAKE) --assume-new=$(TMPDIR)/stamp-component-$*.owl \
-		COMP=true IMP=false MIR=false PAT=true $(COMPONENTSDIR)/$*.owl
-
-$(COMPONENTSDIR)/%.owl: $(TMPDIR)/stamp-component-%.owl | $(COMPONENTSDIR)
-	test -f $@ || touch $@
-.PRECIOUS: $(COMPONENTSDIR)/%.owl
-
-$(TMPDIR)/stamp-component-%.owl: | $(TMPDIR)
-	touch $@
-.PRECIOUS: $(TMPDIR)/stamp-component-%.owl
-
-{%   for component in project.components.products -%}
-{%     if component.source is not none -%}
-ifeq ($(MIR),true)
-.PHONY: download-component-{{ component.filename }}
-download-component-{{ component.filename }}: | $(TMPDIR)
-	@odk-helper download --output $(TMPDIR)/$@ \
-	                     --reference $(COMPONENTSDIR)/{{ component.filename }} \
-	                     {{ component.source }}
-
-$(COMPONENTSDIR)/{{ component.filename }}: download-component-{{ component.filename }} $(TMPDIR)/stamp-component-{{ component.filename }}
-	@if [ -f $(TMPDIR)/download-component-{{ component.filename }} ]; then \
-		$(ROBOT) merge -i $(TMPDIR)/download-component-{{ component.filename }} \{% if component.make_base %}
-		         remove {% for iri in component.base_iris %}--base-iri {{ iri }} \
-		                 {% endfor %}--axioms external --preserve-structure false --trim false \{% endif %}
-				 $(ANNOTATE_CONVERT_FILE) ; \
-	fi
-
-.PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
-endif # MIR=true
-
-{%     elif component.use_template -%}
-$(COMPONENTSDIR)/{{ component.filename }}:{% for template in component.templates %} $(TEMPLATEDIR)/{{ template }}{% endfor %} $(TMPDIR)/stamp-component-{{ component.filename }}
-	$(ROBOT) template {% if component.template_options is not none %}{{ component.template_options }}{% endif %} \
-		 {% for template in component.templates %}--template $(TEMPLATEDIR)/{{ template }} \
-		 {% endfor %}$(ANNOTATE_CONVERT_FILE)
-.PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
-
-{%     elif component.use_mappings -%}
-$(COMPONENTSDIR)/{{ component.filename }}:{% for mapping in component.mappings %} $(MAPPINGDIR)/{{ mapping }}{% endfor %} $(TMPDIR)/stamp-component-{{ component.filename }} | all_robot_plugins
-	$(ROBOT) --add-prefix 'sssom: https://w3id.org/sssom/' \
-		 --add-prefix 'semapv: http://w3id.org/semapv/vocab/' \
-		 sssom:inject {% for mapping in component.mappings %}--sssom $(MAPPINGDIR)/{{ mapping }} \
-		              {% endfor %}--create --direct \
-		 $(ANNOTATE_CONVERT_FILE)
-.PRECIOUS: $(COMPONENTSDIR)/{{ component.filename }}
-
-{%     endif -%}
-{%   endfor -%}
-endif # COMP=true
-{% endif %}{# ! project.components is not none -#}
 
 
 {% if project.subset_group is defined %}
