@@ -805,6 +805,118 @@ no-mirror-recreate-%:
 
 {% endif %}{# ! project.components is not none -#}
 
+{% if project.use_mappings or project.bridge_group is not none -%}
+# ----------------------------------------
+# Mappings and bridges
+# ----------------------------------------
+
+{%   if project.use_mappings -%}
+# SSSOM mappings sets
+# ----------------------------------------
+
+MAPPING_TESTER = sssom validate
+SSSOMPY        = sssom
+
+validate-sssom-%:
+	tsvalid $(MAPPINGDIR)/$*.sssom.tsv --comment "#"
+	$(MAPPING_TESTER) $(MAPPINGDIR)/$*.sssom.tsv
+
+validate_mappings:
+	$(MAKE_FAST) $(foreach n, $(MAPPINGS), validate-sssom-$(n))
+
+normalize-sssom-%:
+	sssom-cli --output $(MAPPINGDIR)/$*.sssom.tsv $(MAPPINGDIR)/$*.sssom.tsv
+
+normalize_mappings:
+	$(MAKE_FAST) $(foreach n, $(MAPPINGS), normalize-sssom-$(n))
+
+{%     if project.sssom_mappingset_group is not none -%}
+{%       for mapping in project.sssom_mappingset_group.products -%}
+{%         if mapping.maintenance == "extract" -%}
+{%           if project.sssom_mappingset_group.mapping_extractor == "sssom-py" -%}
+$(TMPDIR)/{{ mapping.id }}.obographs.json: {{ mapping.source_file }}
+	$(ROBOT) annotate --input $< \
+	                  --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
+	         convert --check false --format json --output $@
+
+$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv: $(TMPDIR)/{{ mapping.id }}.obographs.json
+	$(SSSOMPY) parse $< --input-format obographs-json {% if mapping.sssom_tool_options %}\
+	                 {{ mapping.sssom_tool_options }} \
+	                 {% else %}{% endif %}--output $@
+
+{%           elif project.sssom_mappingset_group.mapping_extractor == "sssom-java" -%}
+$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv: {{ mapping.source_file }} | all_robot_plugins
+	$(ROBOT) sssom:xref-extract --input $< --replace \
+	                            --ignore-treat-xrefs --all-xrefs \
+	                            --mapping-file $@
+
+{%           endif -%}
+{%         elif mapping.maintenance == "manual" -%}
+# This mappingset is manually curated, so we only check that the file actually exists.
+$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:
+	test -f $@
+
+{%         elif mapping.maintenance == "merged" -%}
+$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:{% if mapping.source_mappings|length >=1 %} $(MAPPINGDIR)/{{ mapping.source_mappings[0] }}.sssom.tsv{% endif %}
+                {%- for source in mapping.source_mappings[1:] %} \
+                $(MAPPINGDIR)/{{ source }}.sssom.tsv{% endfor %}
+	sssom-cli --output $@ $^
+
+{%         elif mapping.maintenance == "mirror" -%}
+ifeq ($(MIR),true)
+.PHONY: download-sssom-{{ mapping.id }}
+download-sssom-{{ mapping.id }}: | $(TMPDIR)
+	odk-helper download --output $(TMPDIR)/download-sssom-{{ mapping.id }}.sssom.tsv \
+	                    --reference $(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv \
+	                    {{ mapping.mirror_from }}
+
+$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv: download-sssom-{{ mapping.id }}
+	@if [ -f $(TMPDIR)/download-sssom-{{ mapping.id }}.sssom.tsv ]; then \
+	        cp $(TMPDIR)/download-sssom-{{ mapping.id }}.sssom.tsv $@ ; \
+	fi
+endif
+
+{%         elif mapping.maintenance == "custom" -%}
+$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:
+	@echo "ERROR: You have configured {{ mapping.id }} as a custom mapping set;"
+	@echo "       This rule needs to be overwritten in {{ project.id }}.Makefile!"
+	@false
+
+{%         endif -%}
+{%       endfor -%}
+{%     endif -%}
+
+{%   endif %}{# !project.use_mappings -#}
+
+{%   if project.bridge_group is not none -%}
+# Bridge files
+# ----------------------------------------
+
+{%     for bridge in project.bridge_group.products -%}
+{%       if bridge.bridge_type == "sssom" -%}
+$(BRIDGEDIR)/{{ bridge.id }}.owl: $(SCRIPTSDIR)/bridge-{{ bridge.ruleset }}.sssomt{% for source in bridge.sources %} \
+	        $(MAPPINGDIR)/{{ source }}.sssom.tsv{% endfor %} \
+	        | $(BRIDGEDIR) all_robot_plugins
+	$(ROBOT) sssom:inject {% for source in bridge.sources %}--sssom $(MAPPINGDIR)/{{ source }}.sssom.tsv \
+	                      {% endfor %}--ruleset $(SCRIPTSDIR)/bridge-{{ bridge.ruleset }}.sssomt \
+	                      --create \
+	         annotate --ontology-iri $(ONTBASE)/bridges/{{ bridge.id }}.owl \
+	                  --version-iri $(ONTBASE)/releases/$(VERSION)/bridges/{{ bridge.id }}.owl \
+	                  --annotation owl:versionInfo $(VERSION) \
+	         convert -f ofn -o $@
+
+{%       elif bridge.bridge_type == "custom" -%}
+$(BRIDGEDIR)/{{ bridge.id }}.owl:
+	@echo "ERROR: You have configured {{ bridge.id }} as a custom bridge;"
+	@echo "       This rule needs to be overwritten in {{ project.id}}.Makefile!"
+	@false
+
+{%       endif -%}
+{%     endfor -%}
+{%   endif %}{# !project.bridge_group is not none -#}
+{# #}
+{% endif -%}{# !project.use_mappings or project.bridge_group is not none -#}
+
 # ----------------------------------------
 # Release assets
 # ----------------------------------------
@@ -1215,100 +1327,6 @@ dosdp_validation:
 endif
 
 {% endif -%}
-{% if project.use_mappings -%}
-# ----------------------------------------
-# SSSOM Mapping Files
-# ----------------------------------------
-
-MAPPING_TESTER = sssom validate
-SSSOMPY = sssom
-
-validate-sssom-%:
-	tsvalid $(MAPPINGDIR)/$*.sssom.tsv --comment "#"
-	$(MAPPING_TESTER) $(MAPPINGDIR)/$*.sssom.tsv
-
-validate_mappings:
-	$(MAKE_FAST) $(foreach n,$(MAPPINGS),validate-sssom-$(n))
-
-normalize-sssom-%:
-	sssom-cli --output $(MAPPINGDIR)/$*.sssom.tsv $(MAPPINGDIR)/$*.sssom.tsv
-
-normalize_mappings:
-	$(MAKE_FAST) $(foreach n,$(MAPPINGS),normalize-sssom-$(n))
-
-{%   if project.sssom_mappingset_group is not none -%}
-{%     for mapping in project.sssom_mappingset_group.products -%}
-{%       if mapping.maintenance == "extract" -%}
-{%         if project.sssom_mappingset_group.mapping_extractor == "sssom-py" -%}
-$(TMPDIR)/{{ mapping.id }}.obographs.json: {{ mapping.source_file }}
-	$(ROBOT) annotate --input $< \
-		          --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		 convert --check false --format json --output $@
-
-$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv: $(TMPDIR)/{{ mapping.id }}.obographs.json
-	$(SSSOMPY) parse $< -I obographs-json {{ mapping.sssom_tool_options }} -o $@
-
-{%         elif project.sssom_mappingset_group.mapping_extractor == "sssom-java" -%}
-$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv: {{ mapping.source_file }} | all_robot_plugins
-	$(ROBOT) sssom:xref-extract --input $< --replace \
-		                    --ignore-treat-xrefs --all-xrefs \
-		                    --mapping-file $@
-
-{%         endif -%}
-{%       elif mapping.maintenance == "manual" -%}
-# This mappingset is manually curated, so we only check that the file actually exists.
-$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:
-	test -f $@
-
-{%       elif mapping.maintenance == "merged" -%}
-$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:{% for source in mapping.source_mappings %} $(MAPPINGDIR)/{{ source }}.sssom.tsv{% endfor %}
-	sssom-cli --output $@ $^
-
-{%       elif mapping.maintenance == "mirror" -%}
-ifeq ($(MIR),true)
-$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:
-	wget "{{ mapping.mirror_from }}" -O $@
-endif
-
-{%       elif mapping.maintenance == "custom" -%}
-$(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:
-	@echo "ERROR: You have configured {{ mapping.id }} as a custom mapping set;"
-	@echo "       This rule needs to be overwritten in {{ project.id }}.Makefile!"
-	@false
-
-{%       endif -%}
-{%     endfor -%}
-{%   endif -%}
-
-{% endif %}{# !project.use_mappings -#}
-
-{% if project.bridge_group is not none -%}
-# ----------------------------------------
-# Bridge files
-# ----------------------------------------
-
-{%   for bridge in project.bridge_group.products -%}
-{%     if bridge.bridge_type == "sssom" -%}
-$(BRIDGEDIR)/{{ bridge.id }}.owl: $(SCRIPTSDIR)/bridge-{{ bridge.ruleset }}.sssomt{% for source in bridge.sources %} \
-		$(MAPPINGDIR)/{{ source }}.sssom.tsv{% endfor %} \
-		| $(BRIDGEDIR) all_robot_plugins
-	$(ROBOT) sssom:inject {% for source in bridge.sources %}--sssom $(MAPPINGDIR)/{{ source }}.sssom.tsv \
-		              {% endfor %}--ruleset $(SCRIPTSDIR)/bridge-{{ bridge.ruleset }}.sssomt \
-		              --create \
-		 annotate --ontology-iri $(ONTBASE)/bridges/{{ bridge.id }}.owl \
-		          --version-iri $(ONTBASE)/releases/$(VERSION)/bridges/{{ bridge.id }}.owl \
-		          --annotation owl:versionInfo $(VERSION) \
-		 convert -f ofn -o $@
-
-{%     elif bridge.bridge_type == "custom" -%}
-$(BRIDGEDIR)/{{ bridge.id }}.owl:
-	@echo "ERROR: You have configured {{ bridge.id }} as a custom bridge;"
-	@echo "       This rule needs to be overwritten in {{ project.id}}.Makefile!"
-	@false
-
-{%     endif -%}
-{%   endfor -%}
-{% endif %}{# !project.bridge_group is not none -#}
 
 {% if project.use_translations -%}
 # ----------------------------------------
