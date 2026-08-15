@@ -327,7 +327,7 @@ $(REPORTDIR)/validate_profile_owl2dl_%.txt: % | $(REPORTDIR)
 validate_profile_%: $(REPORTDIR)/validate_profile_owl2dl_%.txt
 	@echo "$* profile validation completed."
 
-# SPARQL-based checks
+# SPARQL-based checks and reports
 # ----------------------------------------
 
 # The SPARQL queries used by those checks live in the ../sparql directory,
@@ -335,16 +335,30 @@ validate_profile_%: $(REPORTDIR)/validate_profile_owl2dl_%.txt
 # NAME in the list below will enable the corresponding check.
 
 {# FIXME: The default list should be computed in the seeding script, not here. -#}
-SPARQL_VALIDATION_CHECKS  ={% for x in project.robot.report.custom_sparql_checks|default(["owldef-self-reference", "iri-range", "label-with-iri", "multiple-replaced_by"]) %} {{ x }}{% endfor %}
-SPARQL_VALIDATION_QUERIES = $(foreach name, $(SPARQL_VALIDATION_CHECKS), $(SPARQLDIR)/$(name)-violation.sparql)
+SPARQL_VALIDATION_CHECKS ={% for x in project.robot.report.custom_sparql_checks|default(["owldef-self-reference", "iri-range", "label-with-iri", "multiple-replaced_by"]) %} {{ x }}{% endfor %}
 
 sparql_test:{% for x in project.robot.report.sparql_test_on|default(["edit"]) %} {% if x =="edit" %}$(SRCMERGED){% else %}{{ x }}{% endif %}{% endfor %} | $(REPORTDIR)
-ifneq ($(SPARQL_VALIDATION_QUERIES),)
+ifneq ($(SPARQL_VALIDATION_CHECKS),)
 {% for x in project.robot.report.sparql_test_on|default(["edit"]) -%}
 {# #}	$(ROBOT) verify --input {% if x=="edit" %}$(SRCMERGED){% else %}{{ x }}{% endif %} \
-		        --queries $(SPARQL_VALIDATION_QUERIES) \
-			--output-dir $(REPORTDIR)
+	                --queries $(foreach name, $(SPARQL_VALIDATION_CHECKS), $(SPARQLDIR)/$(name)-violation.sparql) \
+	                --output-dir $(REPORTDIR)
 {% endfor -%}
+endif
+
+# SPARQL "exports" differ from SPARQL checks in that
+# (i) the files containing the queries do not have a '-violation' suffix,
+# (ii) they do not trigger an error, they merely report what they found.
+
+{# FIXME: The default list should be computed in the seeding script, not here. -#}
+SPARQL_EXPORTS ={% for x in project.robot.report.custom_sparql_exports|default(["basic-report", "class-count-by-prefix", "edges", "xrefs", "obsoletes", "synonyms"]) %} {{ x }}{% endfor %}
+
+.PHONY: custom_reports
+custom_reports: $(EDIT_PREPROCESSED) | $(REPORTDIR)
+ifneq ($(SPARQL_EXPORTS),)
+	$(ROBOT) query --input $< --use-graphs true \
+	               --queries $(foreach name, $(SPARQL_EXPORTS), $(SPARQLDIR)/$(name).sparql) \
+	               --format tsv --output-dir $(REPORTDIR)
 endif
 
 
@@ -1373,22 +1387,6 @@ $(TMPDIR)/current-release.owl:
 $(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
 	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
 
-
-
-# ---------------------------------------------
-# Sparql queries: Table exports / Query Reports
-# ---------------------------------------------
-
-SPARQL_EXPORTS =            {% for x in project.robot.report.custom_sparql_exports|default(['basic-report', 'class-count-by-prefix', 'edges', 'xrefs', 'obsoletes', 'synonyms']) %}{{ x }} {% endfor %}
-
-SPARQL_EXPORTS_ARGS = $(foreach V,$(SPARQL_EXPORTS),-s $(SPARQLDIR)/$(V).sparql $(REPORTDIR)/$(V).tsv)
-# This combines all into one single command
-
-.PHONY: custom_reports
-custom_reports: $(EDIT_PREPROCESSED) | $(REPORTDIR)
-ifneq ($(SPARQL_EXPORTS_ARGS),)
-	$(ROBOT) query -f tsv --use-graphs true -i $< $(SPARQL_EXPORTS_ARGS)
-endif
 
 
 {% if project.use_translations -%}
