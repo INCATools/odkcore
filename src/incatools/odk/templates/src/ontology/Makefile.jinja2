@@ -805,6 +805,47 @@ no-mirror-recreate-%:
 
 {% endif %}{# ! project.components is not none -#}
 
+{% if project.orcidio_support -%}
+# ----------------------------------------
+# Special components
+# ----------------------------------------
+
+# ORCIDIO module
+# ----------------------------------------
+
+# By default, the ORCIDIO module is seeded from ORCID references in ALL
+# IRI-valued annotations in the ontology, regardless of the annotation
+# property. To seed only from annotations using specific properties,
+# override the following variable with the desired list of properties.
+ORCIDIO_PROPERTIES =
+
+ifeq ($(IMP),true)
+$(IMPORTDIR)/orcidio_import.owl: $(SRCMERGED) $(MIRRORDIR)/orcidio.owl | all_robot_plugins
+	$(ROBOT) odk:extract-orcids --input $(SRCMERGED) \
+	                            --orcid-file $(MIRRORDIR)/orcidio.owl \
+	                            $(foreach p, $(ORCIDIO_PROPERTIES), --property $(p)) \
+	         $(ANNOTATE_CONVERT_FILE)
+
+endif
+
+ifeq ($(MIR),true)
+.PHONY: download-mirror-orcidio
+download-mirror-orcidio: | $(TMPDIR) $(MIRRORDIR)
+	@odk-helper download --output $(TMPDIR)/$@.owl \
+	                    --reference $(MIRRORDIR)/orcidio.owl{% if project.import_group is defined %} \
+	                    --max-retry {{ project.import_group.mirror_retry_download }}{% endif %} \
+	                    https://w3id.org/orcidio/orcidio.owl
+
+$(MIRRORDIR)/orcidio.owl: download-mirror-orcidio
+	@if [ -f $(TMPDIR)/download-mirror-orcidio.owl ]; then \
+	        cp $(TMPDIR)/download-mirror-orcidio.owl $@ ; \
+	fi
+
+endif
+
+
+{% endif %}{# !project.orcidio_support -#}
+
 {% if project.use_mappings or project.bridge_group is not none -%}
 # ----------------------------------------
 # Mappings and bridges
@@ -1083,44 +1124,6 @@ $(TMPDIR)/current-release.owl:
 
 $(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
 	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
-
-
-{% if project.orcidio_support -%}
-# ----------------------------------------
-# ORCIDIO module
-# ----------------------------------------
-
-# By default, the ORCIDIO module is seeded from ORCID references in ALL
-# IRI-valued annotations in the ontology, regardless of the annotation
-# property. To seed only from annotations using specific properties,
-# override the following variable with the desired list of properties.
-ORCIDIO_PROPERTIES =
-
-ifeq ($(IMP),true)
-$(IMPORTDIR)/orcidio_import.owl: $(SRCMERGED) $(MIRRORDIR)/orcidio.owl | all_robot_plugins
-	$(ROBOT) odk:extract-orcids --input $(SRCMERGED) \
-	                            --orcid-file $(MIRRORDIR)/orcidio.owl \
-	                            $(foreach p, $(ORCIDIO_PROPERTIES),--property $(p)) \
-		 $(ANNOTATE_CONVERT_FILE)
-
-endif
-
-ifeq ($(MIR),true)
-.PHONY: download-mirror-orcidio
-download-mirror-orcidio: | $(TMPDIR) $(MIRRORDIR)
-	@odk-helper download --output $(TMPDIR)/$@.owl \
-	                    --reference $(MIRRORDIR)/orcidio.owl{% if project.import_group is defined %} \
-	                    --max-retry {{ project.import_group.mirror_retry_download }}{% endif %} \
-	                    https://w3id.org/orcidio/orcidio.owl
-
-$(MIRRORDIR)/orcidio.owl: download-mirror-orcidio
-	@if [ -f $(TMPDIR)/download-mirror-orcidio.owl ]; then \
-		cp $(TMPDIR)/download-mirror-orcidio.owl $@ ; \
-	fi
-
-endif
-
-{% endif -%}
 
 
 
