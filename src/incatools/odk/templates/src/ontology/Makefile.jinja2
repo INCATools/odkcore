@@ -958,6 +958,219 @@ $(BRIDGEDIR)/{{ bridge.id }}.owl:
 {# #}
 {% endif -%}{# !project.use_mappings or project.bridge_group is not none -#}
 
+{% if project.use_dosdps -%}
+# ----------------------------------------
+# DOSDP templates/patterns
+# ----------------------------------------
+
+PATTERN_TESTER          = dosdp validate -i
+DOSDPT                  = dosdp-tools
+PATTERN_RELEASE_FILES   = $(PATTERNDIR)/definitions.owl $(PATTERNDIR)/pattern.owl
+
+ALL_PATTERN_FILES       = $(wildcard $(PATTERNDIR)/dosdp-patterns/*.yaml)
+ALL_PATTERN_NAMES       = $(strip $(basename $(notdir $(ALL_PATTERN_FILES))))
+
+PATTERN_CLEAN_FILES     = $(PATTERNDIR)/all_pattern_terms.txt \
+                          $(DOSDP_OWL_FILES_DEFAULT) $(DOSDP_TERM_FILES_DEFAULT)
+                          {%- if project.pattern_pipelines_group is defined -%}
+                          {% for pipeline in project.pattern_pipelines_group.products %} \
+                          $(DOSDP_OWL_FILES_{{ pipeline.id.upper() }}) $(DOSDP_TERM_FILES_{{ pipeline.id.upper() }})
+                          {%- endfor %}{% endif %}
+
+EXTERNAL_PATTERN_URLS   = $(strip $(file <$(PATTERNDIR)/dosdp-patterns/external.txt))
+EXTERNAL_PATTERN_FILES  = $(notdir $(EXTERNAL_PATTERN_URLS))
+
+.PHONY: pattern_clean
+pattern_clean:
+	rm -f $(PATTERN_CLEAN_FILES)
+
+ifeq ($(PAT),true)
+
+.PHONY: patterns dosdp
+patterns dosdp: dosdp_validation $(PATTERNDIR)/pattern.owl $(PATTERNDIR)/definitions.owl
+
+.PHONY: pattern_schema_checks
+pattern_schema_checks dosdp_validation: $(TMPDIR)/stamp-pattern-schema-checks
+
+$(TMPDIR)/stamp-pattern-schema-checks: $(ALL_PATTERN_FILES) | $(TMPDIR)
+	$(PATTERN_TESTER) $(PATTERNDIR)/dosdp-patterns
+	touch $@
+
+.PHONY: download_patterns
+download_patterns: | $(TMPDIR)
+	mkdir -p $(TMPDIR)/dosdp
+	$(foreach url, $(EXTERNAL_PATTERN_URLS), \
+	          odk-helper download --output $(TMPDIR)/dosdp/$(notdir $(url)) \
+	                              --reference $(PATTERNDIR)/dosdp-patterns/$(notdir $(url)) \
+	                              $(url);)
+
+.PHONY: update_patterns
+update_patterns: download_patterns
+	@for f in $$(find $(TMPDIR) -type f -path '$(TMPDIR)/dosdp/*.yaml') ; do \
+	        cp $$f $(PATTERNDIR)/dosdp-patterns ;
+	done
+
+$(PATTERNDIR)/dosdp-patterns/%.yaml: download_patterns
+	@if [ -f $(TMPDIR)/dosdp/$*.yaml ]; then \
+	        cp $(TMPDIR)/dosdp/$*.yaml $@ ; \
+	fi
+
+# DOSDP pipelines
+# ----------------------------------------
+# Each pipeline gets its own directory structure.
+
+# DOSDP default pipeline
+DOSDP_TSV_FILES_DEFAULT     = $(wildcard $(PATTERNDIR)/data/default/*.tsv)
+DOSDP_PATTERN_NAMES_DEFAULT = $(strip $(basename $(notdir $(DOSDP_TSV_FILES_DEFAULT))))
+DOSDP_OWL_FILES_DEFAULT     = $(foreach name, $(DOSDP_PATTERN_NAMES_DEFAULT), $(PATTERNDIR)/data/default/$(name).ofn)
+DOSDP_TERM_FILES_DEFAULT    = $(foreach name, $(DOSDP_PATTERN_NAMES_DEFAULT), $(PATTERNDIR)/data/default/$(name).txt)
+DOSDP_YAML_FILES_DEFAULT    = $(foreach name, $(DOSDP_PATTERN_NAMES_DEFAULT), $(PATTERNDIR)/dosdp-patterns/$(name).yaml)
+
+$(DOSDP_OWL_FILES_DEFAULT): $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_DEFAULT) $(ALL_PATTERN_FILES)
+	if [ "${DOSDP_PATTERN_NAMES_DEFAULT}" ] ; then \
+	        $(DOSDPT) generate --catalog=$(CATALOG) \
+	                           --infile=$(PATTERNDIR)/data/default/ \
+	                           --template=$(PATTERNDIR)/dosdp-patterns \
+	                           --batch-patterns="$(DOSDP_PATTERN_NAMES_DEFAULT)" \
+	                           --ontology=$< {% if project.dosdp_tools_options %}\
+	                           {{ project.dosdp_tools_options }} {% endif %}\
+	                           --outfile=$(PATTERNDIR)/data/default ; \
+	fi
+
+.PHONY: dosdp-docs-default
+dosdp-docs-default: $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_DEFAULT) $(DOSDP_YAML_FILES_DEFAULT)
+	mkdir -p $(DOCSDIR)/patterns/default
+	$(DOSDPT) docs {% if project.dosdp_tools_options %}{{ project.dosdp_tools_options }} \
+	               {% endif %}--catalog=$(CATALOG) \
+	               --ontology=$< \
+	               --infile=$(PATTERNDIR)/data/default \
+	               --template=$(PATTERNDIR)/dosdp-patterns \
+	               --batch-patterns="$(DOSDP_PATTERN_NAMES_DEFAULT)" \
+	               --outfile=$(DOCSDIR)/patterns/default{% if project.repo_url %} \
+	               --data-location-prefix={{ project.repo_url }}/src/patterns/data/default{% elif project.github_org and project.repo %} \
+	               --data-location-prefix=https://github.com/{{ project.github_org }}/{{ project.repo }}/tree/{{ project.git_main_branch }}/src/patterns/data/default{% endif %}
+
+{%   if project.pattern_pipelines_group is defined -%}
+{%     for pipeline in project.pattern_pipelines_group.products -%}
+# DOSDP {{ pipeline.id }} pipeline
+{% set PID = pipeline.id.upper() -%}
+
+DOSDP_TSV_FILES_{{ PID }}     = $(wildcard $(PATTERNDIR)/data/{{ pipeline.id }}/*.tsv)
+DOSDP_PATTERN_NAMES_{{ PID }} = $(strip $(basename $(notdir $(DOSDP_TSV_FILES_{{ pipeline.id.upper() }}))))
+DOSDP_OWL_FILES_{{ PID }}     = $(foreach name, $(DOSDP_PATTERN_NAMES_{{ PID }}), $(PATTERNDIR)/data/{{ pipeline.id }}/$(name).ofn)
+DOSDP_TERM_FILES_{{ PID }}    = $(foreach name, $(DOSDP_PATTERN_NAMES_{{ PID }}), $(PATTERNDIR)/data/{{ pipeline.id }}/$(name).txt)
+DOSDP_YAML_FILES_{{ PID }}    = $(foreach name, $(DOSDP_PATTERN_NAMES_{{ PID }}), $(PATTERNDIR)/dosdp-patterns/$(name).yaml)
+
+$(DOSDP_OWL_FILES_{{ PID }}): $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_{{ PID }}) $(ALL_PATTERN_FILES)
+	if [ "${DOSDP_PATTERN_NAMES_{{ PID }}}" ] ; then \
+	        $(DOSDPT) generate --catalog=$(CATALOG) \
+	                           --infile=$(PATTERNDIR)/data/{{ pipeline.id }} \
+	                           --template=$(PATTERNDIR)/dosdp-patterns/ \
+	                           --batch-patterns="$(DOSDP_PATTERN_NAMES_{{ PID }})" \
+	                           --ontology=$< {% if pipeline.dosdp_tools_options %}\
+	                           {{ pipeline.dosdp_tools_options }} {% endif %}\
+	                           --outfile=$(PATTERNDIR)/data/{{ pipeline.id }}; \
+	fi
+
+.PHONY: dosdp-docs-{{ pipeline.id }}
+dosdp-docs-{{ pipeline.id }}: $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_{{ PID }}) $(DOSDP_YAML_FILES_{{ PID }})
+	mkdir -p $(DOCSDIR)/patterns/{{ pipeline.id }}
+	$(DOSDPT) docs {% if pipeline.dosdp_tools_options %}{{ pipeline.dosdp_tools_options }} \
+	               {% endif %}--catalog=$(CATALOG) \
+	               --ontology=$< \
+	               --infile=$(PATTERNDIR)/data/{{ pipeline.id }} \
+	               --template=$(PATTERNDIR)/dosdp-patterns \
+	               --batch-patterns="$(DOSDP_PATTERN_NAMES_{{ PID }})" \
+	               --outfile=$(DOCSDIR)/patterns/{{ pipeline.id }}{% if project.repo_url %} \
+	               --data-location-prefix={{ project.repo_url }}/src/patterns/data/{{ pipeline.id }}{% elif project.github_org and project.repo %} \
+	               --data-location-prefix=https://github.com/{{ project.github_org }}/{{ project.repo }}/tree/{{ project.git_main_branch }}/src/patterns/data/{{ pipeline.id }}{% endif %}
+
+{%     endfor -%}
+{%   endif %}{# !project.pattern_pipelines_group is defined -#}
+
+# Template seeds
+# ----------------------------------------
+
+$(PATTERNDIR)/data/default/%.txt: $(PATTERNDIR)/dosdp-patterns/%.yaml $(PATTERNDIR)/data/default/%.tsv
+	$(DOSDPT) terms --infile=$(PATTERNDIR)/data/default/$*.tsv --template $< \
+	                --obo-prefixes=true --outfile=$@
+
+{%   if project.pattern_pipelines_group is defined -%}
+{%     for pipeline in project.pattern_pipelines_group.products -%}
+$(PATTERNDIR)/data/{{ pipeline.id }}/%.txt: $(PATTERNDIR)/dosdp-patterns/%.yaml $(PATTERNDIR)/data/{{ pipeline.id }}/%.tsv
+	$(DOSDPT) terms --infile=$(PATTERNDIR)/data/{{ pipeline.id }}/$*.tsv --template $< \
+	                --obo-prefixes=true --outfile=$@
+
+{%     endfor -%}
+{%     if project.pattern_pipelines_group.matches is iterable -%}
+{%       for matches in project.pattern_pipelines_group.matches -%}
+dosdp-matches-{{ matches.id }}: {{ matches.ontology }} $(ALL_PATTERN_FILES)
+	$(DOSDPT) query {% if matches.dosdp_tools_options %}{{ matches.dosdp_tools_options }} \
+	                {% endif %}--ontology=$< \
+	                --catalog=$(CATALOG) --reasoner=elk \
+	                --batch-patterns="$(ALL_PATTERN_NAMES)" \
+	                --template="$(PATTERNDIR)/dosdp-patterns" \
+	                --outfile="$(PATTERNDIR)/data/{{ matches.id }}/"
+
+{%       endfor -%}
+{%     endif -%}
+{%   endif -%}
+
+# Generating the seed file from all the TSVs.
+$(TMPDIR)/all_pattern_terms.txt: $(DOSDP_TERM_FILES_DEFAULT) \
+                                 {% if project.pattern_pipelines_group is defined -%}
+                                 {%- for pipeline in project.pattern_pipelines_group.products -%}
+                                 {# #}$(DOSDP_TERM_FILES_{{ pipeline.id.upper() }}) \
+                                 {% endfor -%}
+                                 {%- endif -%}
+                                 {# #}$(TMPDIR)/pattern_owl_seed.txt
+	cat $^ | sort | uniq > $@
+
+$(TMPDIR)/pattern_owl_seed.txt: $(PATTERNDIR)/pattern.owl
+	$(ROBOT) query --input $< --use-graphs true --format csv \
+	               --query $(SPARQLDIR)/terms.sparql $@
+
+# Pattern pipeline main targets: the generated OWL files
+# ----------------------------------------
+
+# An ontology of all DOSDP patterns
+$(PATTERNDIR)/pattern.owl: $(ALL_PATTERN_FILES)
+	$(DOSDPT) prototype --template=$(PATTERNDIR)/dosdp-patterns \
+	                    --obo-prefixes=true --outfile=$@
+
+# The component containing all pattern-derived axioms
+$(PATTERNDIR)/definitions.owl: $(DOSDP_OWL_FILES_DEFAULT)
+                               {%- if project.pattern_pipelines_group is defined -%}
+                               {%- for pipeline in project.pattern_pipelines_group.products %} \
+                               $(DOSDP_OWL_FILES_{{ pipeline.id.upper() }})
+                               {%- endfor -%}
+                               {%- endif %}
+	if [ "${DOSDP_PATTERN_NAMES_DEFAULT}" ]
+	        {%- if project.pattern_pipelines_group is defined -%}
+	        {%-   for pipeline in project.pattern_pipelines_group.products %} \
+	        || [ "${DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }}}" ]
+	        {%- endfor -%}
+	        {%- endif %} ; then \
+	        $(ROBOT) merge $(addprefix --input , $^) \
+	                 annotate --ontology-iri $(ONTBASE)/patterns/definitions.owl \
+	                          --version-iri $(ONTBASE)/releases/$(TODAY)/patterns/definitions.owl \
+	                          --annotation owl:versionInfo $(VERSION) \
+	                 convert --format ofn --output $@ ; \
+	fi
+
+else # PAT=false
+# Even if pattern generation is disabled, we still extract a seed from definitions.owl
+$(TMPDIR)/all_pattern_terms.txt: $(PATTERNDIR)/definitions.owl
+	$(ROBOT) query --intput $< --use-graphs true --format csv \
+	               --query $(SPARQLDIR)/terms.sparql $@
+
+# Dummy target to allow "make test" to skip DOSDP validation under PAT=false
+dosdp_validation:
+endif
+
+
+{% endif %}{# !project.use_dosdps -#}
+
 # ----------------------------------------
 # Release assets
 # ----------------------------------------
@@ -1172,164 +1385,6 @@ ifneq ($(SPARQL_EXPORTS_ARGS),)
 	$(ROBOT) query -f tsv --use-graphs true -i $< $(SPARQL_EXPORTS_ARGS)
 endif
 
-{% if project.use_dosdps -%}
-# ----------------------------------------
-# DOSDP Templates/Patterns
-# ----------------------------------------
-
-PATTERN_TESTER = dosdp validate -i
-DOSDPT = dosdp-tools
-PATTERN_RELEASE_FILES = $(PATTERNDIR)/definitions.owl $(PATTERNDIR)/pattern.owl
-
-ALL_PATTERN_FILES=$(wildcard $(PATTERNDIR)/dosdp-patterns/*.yaml)
-ALL_PATTERN_NAMES=$(strip $(patsubst %.yaml,%, $(notdir $(wildcard $(PATTERNDIR)/dosdp-patterns/*.yaml))))
-
-PATTERN_CLEAN_FILES=../patterns/all_pattern_terms.txt \
-	$(DOSDP_OWL_FILES_DEFAULT) $(DOSDP_TERM_FILES_DEFAULT){% if project.pattern_pipelines_group is defined  -%}
-	{% for pipeline in project.pattern_pipelines_group.products %} \
-	$(DOSDP_OWL_FILES_{{ pipeline.id.upper() }}) $(DOSDP_TERM_FILES_{{ pipeline.id.upper() }}){% endfor %}{% endif %}
-
-.PHONY: pattern_clean
-pattern_clean:
-	rm -f $(PATTERN_CLEAN_FILES)
-
-ifeq ($(PAT),true)
-
-.PHONY: patterns
-patterns dosdp:
-	echo "Validating all DOSDP templates"
-	$(MAKE) dosdp_validation
-	echo "Building $(PATTERNDIR)/definitions.owl"
-	$(MAKE) $(PATTERNDIR)/pattern.owl $(PATTERNDIR)/definitions.owl
-
-# DOSDP Template Validation
-
-$(TMPDIR)/pattern_schema_checks: $(ALL_PATTERN_FILES) | $(TMPDIR)
-	$(PATTERN_TESTER) $(PATTERNDIR)/dosdp-patterns/ && touch $@
-
-.PHONY: pattern_schema_checks
-pattern_schema_checks dosdp_validation: $(TMPDIR)/pattern_schema_checks
-
-.PHONY: update_patterns
-update_patterns: download_patterns
-	if [ -n "$$(find $(TMPDIR) -type f -path '$(TMPDIR)/dosdp/*.yaml')" ]; then cp -r $(TMPDIR)/dosdp/*.yaml $(PATTERNDIR)/dosdp-patterns; fi
-
-# This command is a workaround for the absence of -N and -i in wget of alpine (the one ODK depend on now).
-# It downloads all patterns specified in external.txt
-.PHONY: download_patterns
-download_patterns:
-	rm -f $(TMPDIR)/dosdp/*.yaml.1 || true
-	if [ -s $(PATTERNDIR)/dosdp-patterns/external.txt ]; then wget -i $(PATTERNDIR)/dosdp-patterns/external.txt --backups=1 -P $(TMPDIR)/dosdp; fi
-	rm -f $(TMPDIR)/dosdp/*.yaml.1 || true
-
-$(PATTERNDIR)/dospd-patterns/%.yml: download_patterns
-	if cmp -s $(TMPDIR)/dosdp-$*.yml $@ ; then echo "DOSDP templates identical."; else echo "DOSDP templates different, updating." &&\
-		cp $(TMPDIR)/dosdp-$*.yml $@; fi
-
-
-# DOSDP Template: Pipelines
-# Each pipeline gets its own directory structure
-
-# DOSDP default pipeline
-
-DOSDP_TSV_FILES_DEFAULT = $(wildcard $(PATTERNDIR)/data/default/*.tsv)
-DOSDP_PATTERN_NAMES_DEFAULT = $(strip $(patsubst %.tsv, %, $(notdir $(DOSDP_TSV_FILES_DEFAULT))))
-DOSDP_OWL_FILES_DEFAULT = $(foreach name, $(DOSDP_PATTERN_NAMES_DEFAULT), $(PATTERNDIR)/data/default/$(name).ofn)
-DOSDP_TERM_FILES_DEFAULT = $(foreach name, $(DOSDP_PATTERN_NAMES_DEFAULT), $(PATTERNDIR)/data/default/$(name).txt)
-DOSDP_YAML_FILES_DEFAULT = $(foreach name, $(DOSDP_PATTERN_NAMES_DEFAULT), $(PATTERNDIR)/dosdp-patterns/$(name).yaml)
-
-$(DOSDP_OWL_FILES_DEFAULT): $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_DEFAULT) $(ALL_PATTERN_FILES)
-	if [ "${DOSDP_PATTERN_NAMES_DEFAULT}" ]; then $(DOSDPT) generate --catalog=$(CATALOG) \
-    --infile=$(PATTERNDIR)/data/default/ --template=$(PATTERNDIR)/dosdp-patterns --batch-patterns="$(DOSDP_PATTERN_NAMES_DEFAULT)" \
-    --ontology=$< {{ project.dosdp_tools_options }} --outfile=$(PATTERNDIR)/data/default; fi
-
-.PHONY: dosdp-docs-default
-dosdp-docs-default: $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_DEFAULT) $(DOSDP_YAML_FILES_DEFAULT)
-	mkdir -p $(DOCSDIR)/patterns/default
-	$(DOSDPT) docs {{ project.dosdp_tools_options }} --catalog=$(CATALOG) \
-		       --ontology=$< \
-		       --infile=$(PATTERNDIR)/data/default \
-		       --template=$(PATTERNDIR)/dosdp-patterns \
-		       --batch-patterns="$(DOSDP_PATTERN_NAMES_DEFAULT)" \
-		       --outfile=$(DOCSDIR)/patterns/default{% if project.repo_url %} \
-		       --data-location-prefix={{ project.repo_url }}/src/patterns/data/default{% elif project.github_org and project.repo %} \
-		       --data-location-prefix=https://github.com/{{ project.github_org }}/{{ project.repo }}/tree/{{ project.git_main_branch }}/src/patterns/data/default{% endif %}
-
-{% if project.pattern_pipelines_group is defined %}
-{% for pipeline in project.pattern_pipelines_group.products %}
-# DOSDP {{ pipeline.id }} pipeline
-
-DOSDP_TSV_FILES_{{ pipeline.id.upper() }} = $(wildcard $(PATTERNDIR)/data/{{ pipeline.id }}/*.tsv)
-DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }} = $(strip $(patsubst %.tsv, %, $(notdir $(DOSDP_TSV_FILES_{{ pipeline.id.upper() }}))))
-DOSDP_OWL_FILES_{{ pipeline.id.upper() }} = $(foreach name, $(DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }}), $(PATTERNDIR)/data/{{ pipeline.id }}/$(name).ofn)
-DOSDP_TERM_FILES_{{ pipeline.id.upper() }} = $(foreach name, $(DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }}), $(PATTERNDIR)/data/{{ pipeline.id }}/$(name).txt)
-DOSDP_YAML_FILES_{{ pipeline.id.upper() }} = $(foreach name, $(DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }}), $(PATTERNDIR)/dosdp-patterns/$(name).yaml)
-
-$(DOSDP_OWL_FILES_{{ pipeline.id.upper() }}): $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_{{ pipeline.id.upper() }}) $(ALL_PATTERN_FILES)
-	if [ "${DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }}}" ]; then $(DOSDPT) generate --catalog=$(CATALOG) \
-    --infile=$(PATTERNDIR)/data/{{ pipeline.id }} --template=$(PATTERNDIR)/dosdp-patterns/ --batch-patterns="$(DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }})" \
-    --ontology=$< {{ pipeline.dosdp_tools_options }} --outfile=$(PATTERNDIR)/data/{{ pipeline.id }}; fi
-
-.PHONY: dosdp-docs-{{ pipeline.id }}
-dosdp-docs-{{ pipeline.id }}: $(EDIT_PREPROCESSED) $(DOSDP_TSV_FILES_{{ pipeline.id.upper() }}) $(DOSDP_YAML_FILES_{{ pipeline.id.upper() }})
-	mkdir -p $(DOCSDIR)/patterns/{{ pipeline.id }}
-	$(DOSDPT) docs {{ pipeline.dosdp_tools_options }} --catalog=$(CATALOG) \
-		       --ontology=$< \
-		       --infile=$(PATTERNDIR)/data/{{ pipeline.id }} \
-		       --template=$(PATTERNDIR)/dosdp-patterns \
-		       --batch-patterns="$(DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }})" \
-		       --outfile=$(DOCSDIR)/patterns/{{ pipeline.id }}{% if project.repo_url %} \
-		       --data-location-prefix={{ project.repo_url }}/src/patterns/data/{{ pipeline.id }}{% elif project.github_org and project.repo %} \
-		       --data-location-prefix=https://github.com/{{ project.github_org }}/{{ project.repo }}/tree/{{ project.git_main_branch }}/src/patterns/data/{{ pipeline.id }}{% endif %}
-{% endfor -%}
-{% endif -%}
-
-# Generate template file seeds
-
-## Generate template file seeds
-$(PATTERNDIR)/data/default/%.txt: $(PATTERNDIR)/dosdp-patterns/%.yaml $(PATTERNDIR)/data/default/%.tsv
-	$(DOSDPT) terms --infile=$(word 2, $^) --template=$< --obo-prefixes=true --outfile=$@
-
-{% if project.pattern_pipelines_group is defined -%}
-{% for pipeline in project.pattern_pipelines_group.products %}
-$(PATTERNDIR)/data/{{ pipeline.id }}/%.txt: $(PATTERNDIR)/dosdp-patterns/%.yaml $(PATTERNDIR)/data/{{ pipeline.id }}/%.tsv
-	$(DOSDPT) terms --infile=$(word 2, $^) --template=$< --obo-prefixes=true --outfile=$@
-{% endfor %}
-{% if project.pattern_pipelines_group.matches is iterable -%}{% for matches in project.pattern_pipelines_group.matches %}
-dosdp-matches-{{ matches.id }}: {{ matches.ontology }} $(ALL_PATTERN_FILES)
-	$(DOSDPT) query --ontology=$< --catalog=$(CATALOG) --reasoner=elk {{ matches.dosdp_tools_options }} \
-    --batch-patterns="$(ALL_PATTERN_NAMES)" --template="$(PATTERNDIR)/dosdp-patterns" --outfile="$(PATTERNDIR)/data/{{ matches.id }}/"
-{% endfor %}{% endif -%}
-{% endif -%}
-
-# Generating the seed file from all the TSVs.
-$(TMPDIR)/all_pattern_terms.txt: $(DOSDP_TERM_FILES_DEFAULT) {% if project.pattern_pipelines_group is defined %} {% for pipeline in project.pattern_pipelines_group.products %} $(DOSDP_TERM_FILES_{{ pipeline.id.upper() }}){% endfor %}{% endif %} $(TMPDIR)/pattern_owl_seed.txt
-	cat $^ | sort | uniq > $@
-
-$(TMPDIR)/pattern_owl_seed.txt: $(PATTERNDIR)/pattern.owl
-	$(ROBOT) query --use-graphs true -f csv -i $< --query ../sparql/terms.sparql $@
-
-# Pattern pipeline main targets: the generated OWL files
-
-# Create pattern.owl, an ontology of all DOSDP patterns
-$(PATTERNDIR)/pattern.owl: $(ALL_PATTERN_FILES)
-	$(DOSDPT) prototype --obo-prefixes true --template=$(PATTERNDIR)/dosdp-patterns --outfile=$@
-
-# Generating the individual pattern modules and merging them into definitions.owl
-$(PATTERNDIR)/definitions.owl: $(DOSDP_OWL_FILES_DEFAULT) {% if project.pattern_pipelines_group is defined %} {% for pipeline in project.pattern_pipelines_group.products %} $(DOSDP_OWL_FILES_{{ pipeline.id.upper() }}){% endfor %}{% endif %}
-	if [ "${DOSDP_PATTERN_NAMES_DEFAULT}" ] {% if project.pattern_pipelines_group is defined %} {% for pipeline in project.pattern_pipelines_group.products %} || [ "${DOSDP_PATTERN_NAMES_{{ pipeline.id.upper() }}}" ]{% endfor %}{% endif %} && [ $(PAT) = true ]; then $(ROBOT) merge $(addprefix -i , $^) \
-		annotate --ontology-iri $(ONTBASE)/patterns/definitions.owl  --version-iri $(ONTBASE)/releases/$(TODAY)/patterns/definitions.owl \
-      --annotation owl:versionInfo $(VERSION) -o definitions.ofn && mv definitions.ofn $@; fi
-
-else # PAT=false
-# Even if pattern generation is disabled, we still extract a seed from definitions.owl
-$(TMPDIR)/all_pattern_terms.txt: $(PATTERNDIR)/definitions.owl
-	$(ROBOT) query --use-graphs true -f csv -i $< --query $(SPARQLDIR)/terms.sparql $@
-
-dosdp_validation:
-endif
-
-{% endif -%}
 
 {% if project.use_translations -%}
 # ----------------------------------------
