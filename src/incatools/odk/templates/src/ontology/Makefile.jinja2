@@ -1171,6 +1171,41 @@ endif
 
 {% endif %}{# !project.use_dosdps -#}
 
+{% if project.subset_group is defined -%}
+# ----------------------------------------
+# Subsets
+# ----------------------------------------
+
+$(SUBSETDIR)/%.tsv: $(SUBSETDIR)/%.owl
+	$(ROBOT) export --input $< --include classes \
+	                --header "ID [IRI]|LABEL" --format tsv --export $@
+.PRECIOUS: $(SUBSETDIR)/%.tsv
+
+$(SUBSETDIR)/%.owl: $(ONT).owl | $(SUBSETDIR) all_robot_plugins
+	$(ROBOT) odk:subset --input $< --subset $* --fill-gaps true \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) --output $@
+.PRECIOUS: $(SUBSETDIR)/%.owl
+
+{%   if 'obo' in project.export_formats -%}
+$(SUBSETDIR)/%.obo: $(SUBSETDIR)/%.owl
+	$(ROBOT) convert --input $< --check false --format obo \
+	                 $(OBO_FORMAT_OPTIONS) --output $@
+
+{%   endif -%}
+{%   if 'ttl' in project.export_formats -%}
+$(SUBSETDIR)/%.ttl: $(SUBSETDIR)/%.owl
+	$(ROBOT) convert --input $< --check false --format ttl --output $@
+
+{%   endif -%}
+{%   if 'json' in project.export_formats -%}
+$(SUBSETDIR)/%.json: $(SUBSETDIR)/%.owl
+	$(ROBOT) convert --input $< --check false --format json --output $@
+
+{%   endif -%}
+{# #}
+{% endif %}{# !project.subset_group is defined -#}
+
 # ----------------------------------------
 # Release assets
 # ----------------------------------------
@@ -1339,36 +1374,6 @@ $(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
 	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
 
 
-
-{% if project.subset_group is defined %}
-# ----------------------------------------
-# Subsets
-# ----------------------------------------
-$(SUBSETDIR)/%.tsv: $(SUBSETDIR)/%.owl
-	$(ROBOT) export -i $< --include classes \
-		        --header "ID [IRI]|LABEL" --format tsv --export $@
-.PRECIOUS: $(SUBSETDIR)/%.tsv
-
-$(SUBSETDIR)/%.owl: $(ONT).owl | $(SUBSETDIR) all_robot_plugins
-	$(ROBOT) odk:subset -i $< --subset $* --fill-gaps true \
-		 annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) -o $@
-.PRECIOUS: $(SUBSETDIR)/%.owl
-
-{% if 'obo' in project.export_formats %}
-$(SUBSETDIR)/%.obo: $(SUBSETDIR)/%.owl
-	$(ROBOT) convert --input $< --check false -f obo $(OBO_FORMAT_OPTIONS) -o $@
-{% endif -%}
-{% if 'ttl' in project.export_formats %}
-$(SUBSETDIR)/%.ttl: $(SUBSETDIR)/%.owl
-	$(ROBOT) convert --input $< --check false -f ttl -o $@.tmp.ttl && mv $@.tmp.ttl $@
-{% endif -%}
-{% if 'json' in project.export_formats %}
-$(SUBSETDIR)/%.json: $(SUBSETDIR)/%.owl
-	$(ROBOT) convert --input $< --check false -f json -o $@.tmp.json &&\
-	mv $@.tmp.json $@
-{% endif -%}
-
-{% endif %}
 
 # ---------------------------------------------
 # Sparql queries: Table exports / Query Reports
