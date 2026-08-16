@@ -1327,6 +1327,392 @@ $(TRANSLATIONSDIR)/%.babelon.json: $(TRANSLATIONSDIR)/%.babelon.tsv
 {% endif %}{# !project.use_translations -#}
 
 # ----------------------------------------
+# Release artefacts
+# ----------------------------------------
+
+SHARED_ROBOT_COMMANDS          ={% if project.remove_owl_nothing %} remove --term owl:Nothing{% endif %}
+{# Merge all OWL imports (both ODK import modules and components). -#}
+ROBOT_RELEASE_IMPORT_MODE      = {% if project.use_edit_file_imports -%}
+                                 $(ROBOT) merge --input $<{# -#}
+                                 {%   if project.import_group is not none and
+                                        project.import_group.use_base_merging is false and
+                                        project.import_group.annotate_defined_by -%}
+                                          {# #} --annotate-defined-by true{# -#}
+                                 {%   endif -%}
+                                 {% else -%}
+                                 $(ROBOT) remove --input $< --select imports --trim false{# -#}
+                                 {%   if project.use_dosdps or project.components is not none %} \
+                                          merge $(foreach src, $(OTHER_SRC), --input $(src)){# -#}
+                                 {%   endif -%}
+                                 {%   if project.import_group is not none %} \
+                                          merge $(foreach imp, $(IMPORT_FILES), --input $(imp)){# -#}
+                                 {%   endif -%}
+                                 {% endif %}
+{# Merge components only.
+   This is for the release artefacts that start from "base". -#}
+ROBOT_RELEASE_IMPORT_MODE_BASE = $(ROBOT) remove --input $< --select imports --trim false{# -#}
+                                 {% if project.use_dosdps or project.components is not none %} \
+                                          merge $(foreach src, $(OTHER_SRC), --input $(src)){# -#}
+                                 {% endif %}
+
+# Release artefacts: main pipelines
+# ----------------------------------------
+
+{% if "basic" in project.release_artefacts or project.primary_release == "basic" -%}
+KEEPRELATIONS = keeprelations.txt
+{% endif -%}
+{% if "basic" in project.release_artefacts
+   or "simple" in project.release_artefacts
+   or "simple-non-classified" in project.release_artefacts
+   or project.primary_release == "basic"
+   or project.primary_release == "simple"
+   or project.primary_release == "simple-non-classified" -%}
+SIMPLESEED    = $(TMPDIR)/simple_seed.txt
+
+$(SIMPLESEED): $(SRCMERGED)
+	$(ROBOT) query --input $< --format csv \
+	               --query $(SPARQLDIR)/simple-seed.sparql $@.1.tmp \
+	               --query $(SPARQLDIR)/{{ project.id }}_terms.sparql $@.2.tmp
+	cat $@.1.tmp $@.2.tmp | sort | uniq > $@
+	echo "http://www.geneontology.org/formats/oboInOwl#SubsetProperty" >> $@
+	echo "http://www.geneontology.org/formats/oboInOwl#SynonymTypeProperty" >> $@
+
+{% endif -%}
+
+# The primary release artefact.
+$(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
+	$(ROBOT) annotate --input $< --ontology-iri $(URIBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) --output $@
+
+{% if "base" in project.release_artefacts or project.primary_release == "base" -%}
+# Base: A version of the ontology in which axioms outside of the
+# ontology's namespace(s) are forcibly removed.
+$(ONT)-base.owl: $(EDIT_PREPROCESSED)
+                 {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+                 {%- if project.import_group is not none %} $(IMPORT_FILES){% endif %}
+	$(ROBOT_RELEASE_IMPORT_MODE) \
+	         {% if project.release_use_reasoner -%}
+	         reason --reasoner $(REASONER) \
+	                --equivalent-classes-allowed {{ project.allow_equivalents }} \
+	                --exclude-tautologies {{ project.exclude_tautologies }} \
+	                --annotate-inferred-axioms {{ project.release_annotate_inferred_axioms|default("false")|lower }} \
+	         {%   if project.release_materialize_object_properties -%}
+	         materialize {# -#}
+	         {%     for iri in project.release_materialize_object_properties -%}
+	                     --term {{ iri }}{# -#}
+	         {%       if not loop.last %} \
+	                     {# -#}
+	         {%       else %} \
+	         {# -#}
+	         {%       endif -%}
+	         {%     endfor -%}
+	         {%   endif -%}
+	         {% endif -%}
+	         relax $(RELAX_OPTIONS) \
+	         {% if project.release_use_reasoner -%}
+	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
+	         {% endif -%}
+	         remove {# -#}
+	                {% if project.namespaces is not none -%}
+	                {%   for iri in project.namespaces -%}
+	                --base-iri {{ iri }}{# -#}
+	                {%     if not loop.last %} \
+	                {# -#}
+	                {%     else %} \
+	                {# -#}
+	                {%     endif -%}
+	                {%   endfor -%}
+	                {% else -%}
+	                --base-iri $(URIBASE)/{{ project.id.upper() }} \
+	                {% endif -%}
+	                --axioms external --preserve-structure false --trim false \
+	         $(SHARED_ROBOT_COMMANDS) \
+	         annotate --link-annotation http://purl.org/dc/elements/1.1/type http://purl.obolibrary.org/obo/IAO_8000001 \
+	                  --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% if "baselite" in project.release_artefacts or project.primary_release == "baselite" -%}
+# Baselite: All the axioms as intended by the editors (no imports, no reasoning).
+{# FIXME: This is undocumented and of dubious usefulness. This was previously
+   said in a comment here to be "the same as base", which it is absolutely not.
+   See https://github.com/INCATools/ontology-development-kit/issues/1102. -#}
+$(ONT)-baselite.owl: $(EDIT_PREPROCESSED)
+                 {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+	$(ROBOT_RELEASE_IMPORT_MODE_BASE) \
+	         $(ROBOT_SHARED_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% if "full" in project.release_artefacts or project.primary_release == "full" -%}
+# Full: The full artefacts with imports merged, reasoned.
+$(ONT)-full.owl: $(EDIT_PREPROCESSED)
+                 {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+                 {%- if project.import_group is not none %} $(IMPORT_FILES){% endif %}
+	$(ROBOT_RELEASE_IMPORT_MODE) \
+	         reason --reasoner $(REASONER) \
+	                --equivalent-classes-allowed {{ project.allow_equivalents }} \
+	                --exclude-tautologies {{ project.exclude_tautologies }} \
+	         {% if project.release_materialize_object_properties -%}
+	         materialize {# -#}
+	         {%   for iri in project.release_materialize_object_properties -%}
+	                     --term {{ iri }}{# -#}
+	         {%     if not loop.last %} \
+	                     {# -#}
+	         {%     else %} \
+	         {# -#}
+	         {%     endif -%}
+	         {%   endfor -%}
+	         {% endif -%}
+	         relax $(RELAX_OPTIONS) \
+	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
+	         $(SHARED_ROBOT_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% if "non-classified" in project.release_artefacts or project.primary_release == "non-classified" -%}
+# Non-classified: All the axioms as intended by the editors,
+# including imported axioms but without reasoning.
+$(ONT)-non-classified.owl: $(EDIT_PREPROCESSED)
+                           {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+                           {%- if project.import_group is not none %} $(IMPORT_FILES){% endif %}
+	$(ROBOT_RELEASE_IMPORT_MODE) \
+	         $(ROBOT_SHARED_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% if "simple" in project.release_artefacts or project.primary_release == "simple" -%}
+# Simple: A version of the ontology that is {% if not project.release_use_reasoner %}un{% endif%}reasoned
+# and from which all axioms referring to an entity outside
+# of the ontology's namespace(s) are forcibly removed.
+$(ONT)-simple.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED)
+                   {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+                   {%- if project.import_group is not none %} $(IMPORT_FILES){% endif %} | all_robot_plugins
+	$(ROBOT_RELEASE_IMPORT_MODE) \
+	         {% if project.release_use_reasoner -%}
+	         reason --reasoner $(REASONER) \
+	                --equivalent-classes-allowed {{ project.allow_equivalents }} \
+	                --exclude-tautologies {{ project.exclude_tautologies }} \
+	                --annotate-inferred-axioms {{ project.release_annotate_inferred_axioms|default("false")|lower }} \
+	         {% endif -%}
+	         relax $(RELAX_OPTIONS) \
+	         remove --axioms equivalent \
+	         filter --term-file $(SIMPLESEED) \
+	                --select "annotations ontology anonymous self" \
+	                --trim true --signature true \
+	         {% if project.release_use_reasoner -%}
+	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
+	         {% endif -%}
+	         odk:normalize --base-iri {{ project.uribase }} \
+	                       --subset-decls true --synonym-decls true \
+	         repair --merge-axiom-annotations true \
+	         $(ROBOT_SHARED_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% if "simple-non-classified" in project.release_artefacts or project.primary_release == "simple-non-classified" %}
+# Simple-non-classified: Does not merge imports AND forcibly removes
+# axioms outside of the ontology's namespaces(s). No reasoning.
+$(ONT)-simple-non-classified.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED)
+                                  {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+	$(ROBOT_RELEASE_IMPORT_MODE_BASE) \
+	         remove --axioms equivalent \
+	         {% if project.release_use_reasoner -%}
+	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
+	         {% endif -%}
+	         filter --select ontology --term-file $(SIMPLESEED) --trim false \
+	         $(ROBOT_SHARED_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% if "basic" in project.release_artefacts or project.primary_release == "basic" %}
+# Basic: A version of the ontology that is {% if not project.release_use_reasoner %}un{% endif%}reasoned
+# and from which all axioms referring to an entity outside
+# of the ontology's namespace(s) are forcibly removed, as well
+# as all relationships not whitelisted in KEEPRELATIONS.
+$(ONT)-basic.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED) $(KEEPRELATIONS)
+                  {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
+                  {%- if project.import_group is not none %} $(IMPORT_FILES){% endif %}
+	$(ROBOT_RELEASE_IMPORT_MODE) \
+	         {% if project.release_use_reasoner -%}
+	         reason --reasoner $(REASONER) \
+	                --equivalent-classes-allowed {{ project.allow_equivalents }} \
+	                --exclude-tautologies {{ project.exclude_tautologies }} \
+	                --annotate-inferred-axioms {{ project.release_annotate_inferred_axioms|default("false")|lower }} \
+	         {% endif -%}
+	         relax $(RELAX_OPTIONS) \
+	         remove --axioms equivalent \
+	         remove --axioms disjoint \
+	         remove --term-file $(KEEPRELATIONS) \
+	                --select complement --select object-properties --trim true \
+	         filter --term-file $(SIMPLESEED) \
+	                --select "annotations ontology anonymous self" \
+	                --trim true --signature true \
+	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
+	         $(ROBOT_SHARED_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+
+{% if "international" in project.release_artefacts or project.primary_release == "international" -%}
+# International: A variant of the primary release, but with multi-language support.
+$(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
+	$(ROBOT) merge $(foreach src, $^, --input $(src)) \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	                  {% if project.release_date -%}
+	                  --annotation oboInOwl:date "$(OBODATE)" \
+	                  {% endif -%}
+	                  --output $@
+
+{% endif -%}
+
+{% for r in project.release_artefacts -%}
+{% if r.startswith("custom-") -%}
+{{ r | replace("custom-","")}}.owl:
+	@echo "ERROR: You have configured a custom release artefact ($@);"
+	@echo "       this artefact needs to be defined in {{ project.id }}.Makefile!"
+	@false
+
+{%   endif -%}
+{% endfor -%}
+
+# Release artefacts: export formats
+# ----------------------------------------
+
+{# FIXME: The seeding script should provide us with a list of artefacts
+   that include both the "primary" artefact ($(ONT)) plus all the
+   variants ($(ONT)-base, $(ONT)-full, etc.), so that we do not have
+   to duplicate all the code below (once for the primary artefact and
+   one when we iterate over the variants. -#}
+{% if "obo" in project.export_formats -%}
+$(ONT).obo: $(ONT).owl
+	$(ROBOT) convert --input $< --check false \
+	                 --format obo $(OBO_FORMAT_OPTIONS) --output $@
+
+{% endif -%}
+{%   if "ttl" in project.export_formats -%}
+{# FIXME: Why are re-annotating? The release.owl product should have
+   been annotated already.
+   See https://github.com/INCATools/ontology-development-kit/issues/1366. -#}
+$(ONT).ttl: $(ONT).owl
+	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	         convert --check false --format ttl --output $@
+
+{%   endif -%}
+{%   if "json" in project.export_formats -%}
+$(ONT).json: $(ONT).owl
+	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	         convert --check false --format json --output $@
+
+{%   endif -%}
+{% for r in project.release_artefacts -%}
+{%   if r.startswith("custom-") -%}
+{%     set release = r | replace("custom-","") -%}
+{%   else -%}
+{%     set release = "$(ONT)-" ~ r -%}
+{%   endif -%}
+{%   if "obo" in project.export_formats -%}
+{{ release }}.obo: {{ release }}.owl
+	$(ROBOT) convert --input $< --check false \
+	                 --format obo $(OBO_FORMAT_OPTIONS) --output $@
+
+{%   endif -%}
+{%   if "ttl" in project.export_formats -%}
+{{ release }}.ttl: {{ release }}.owl
+	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	         convert --check false --format ttl --output $@
+
+{%   endif -%}
+{%   if "json" in project.export_formats -%}
+{{ release }}.json: {{ release }}.owl
+	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
+	         $(ANNOTATE_ONTOLOGY_VERSION) \
+	         convert --check false --format json --output $@
+
+{%   endif -%}
+{% endfor -%}
+
+{% if 'db' in project.export_formats -%}
+
+{% if project.use_context -%}
+CONTEXT_FILE_CSV = $(TMPDIR)/context.csv
+$(CONTEXT_FILE_CSV): $(CONTEXT_FILE) | $(TMPDIR)
+	@odk-helper context2csv $< > $@
+
+{% endif -%}
+
+%.db: %.owl{% if project.use_context %} $(CONTEXT_FILE_CSV){% endif %}
+	@rm -f $*.db $*-relation-graph.tsv.gz .template.db .template.db.tmp
+	semsql make $*.db{% if project.use_context %} -P $(CONTEXT_FILE_CSV){% endif %}
+	@rm -f $*-relation-graph.tsv.gz .template.db .template.db.tmp
+	@test -f $*.db || (echo "SQLite/SemSQL generation failed" && exit 1)
+
+{% endif -%}
+
+{% for format in project.export_formats -%}
+{%   if project.gzip_main -%}
+$(ONT).{{ format }}.gz: $(ONT).{{ format }}
+	gzip -c $< > $@
+
+{%   endif -%}
+{% endfor -%}
+{% if 'owl' not in project.export_formats -%}
+{%   if project.gzip_main -%}
+$(ONT).owl.gz: $(ONT).owl
+	gzip -c $< > $@
+
+{%   endif -%}
+$(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
+	cp $< $@
+
+{% endif -%}
+
+{# #}
+# ----------------------------------------
 # Release assets
 # ----------------------------------------
 
@@ -1447,9 +1833,6 @@ check_rdfxml_assets: $(foreach product,$(MAIN_PRODUCTS),check_rdfxml_$(product).
 # Release Management
 # ----------------------------------------
 
-{% if 'basic' in project.release_artefacts or project.primary_release == 'basic' -%}
-KEEPRELATIONS=keeprelations.txt
-{% endif -%}
 
 CLEANFILES=$(MAIN_FILES) $(SRCMERGED) $(EDIT_PREPROCESSED)
 
@@ -1494,215 +1877,8 @@ $(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
 	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
 
 
-# ----------------------------------------
-# Release artefacts: export formats
-# ----------------------------------------
 
 
-{% for r in project.release_artefacts -%}
-{% if r.startswith('custom-') %}{% set release = r | replace("custom-","") %}{% else %}{% set release = "$(ONT)-" ~ r %}{% endif -%}
-{% if 'obo' in project.export_formats -%}
-{{ release }}.obo: {{ release }}.owl
-	$(ROBOT) convert --input $< --check false -f obo $(OBO_FORMAT_OPTIONS) -o $@
-{% endif -%}
-{% if 'ttl' in project.export_formats -%}
-{{ release }}.ttl: {{ release }}.owl
-	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		convert --check false -f ttl -o $@.tmp.ttl && mv $@.tmp.ttl $@
-{% endif -%}
-{% if 'json' in project.export_formats -%}
-{{ release }}.json: {{ release }}.owl
-	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		convert --check false -f json -o $@.tmp.json &&\
-		mv $@.tmp.json $@
-{% endif -%}
-{% endfor -%}
-
-{% if 'db' in project.export_formats -%}
-
-{% if project.use_context -%}
-CONTEXT_FILE_CSV = $(TMPDIR)/context.csv
-$(CONTEXT_FILE_CSV): $(CONTEXT_FILE) | $(TMPDIR)
-	@odk-helper context2csv $< > $@
-{% endif -%}
-
-%.db: %.owl{% if project.use_context %} $(CONTEXT_FILE_CSV){% endif %}
-	@rm -f $*.db $*-relation-graph.tsv.gz .template.db .template.db.tmp
-	semsql make $*.db{% if project.use_context %} -P $(CONTEXT_FILE_CSV){% endif %}
-	@rm -f $*-relation-graph.tsv.gz .template.db .template.db.tmp
-	@test -f $*.db || (echo "SQLite/SemSQL generation failed" && exit 1)
-{% endif -%}
-
-# ----------------------------------------
-# Release artefacts: main release artefacts
-# ----------------------------------------
-
-$(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
-	$(ROBOT) annotate --input $< --ontology-iri $(URIBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		convert -o $@.tmp.owl && mv $@.tmp.owl $@
-
-{% if 'obo' in project.export_formats -%}
-$(ONT).obo: $(ONT).owl
-	$(ROBOT) convert --input $< --check false -f obo $(OBO_FORMAT_OPTIONS) -o $@
-{% endif -%}
-{% if 'ttl' in project.export_formats -%}
-$(ONT).ttl: $(ONT).owl
-	$(ROBOT) annotate --input $< --ontology-iri $(URIBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		convert --check false -f ttl -o $@.tmp.ttl && mv $@.tmp.ttl $@
-{% endif -%}
-{% if 'json' in project.export_formats -%}
-$(ONT).json: $(ONT).owl
-	$(ROBOT) annotate --input $< --ontology-iri $(URIBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		convert --check false -f json -o $@.tmp.json &&\
-		mv $@.tmp.json $@
-{% endif -%}
-
-# -----------------------------------------------------
-# Release artefacts: variants (base, full, simple, etc)
-# -----------------------------------------------------
-SHARED_ROBOT_COMMANDS = {% if project.remove_owl_nothing -%}remove --term owl:Nothing{% endif %}
-
-{% if "basic" in project.release_artefacts
-   or "simple" in project.release_artefacts
-   or "simple-non-classified" in project.release_artefacts
-   or project.primary_release == "basic"
-   or project.primary_release == "simple"
-   or project.primary_release == "simple-non-classified" -%}
-SIMPLESEED = $(TMPDIR)/simple_seed.txt
-
-$(SIMPLESEED): $(SRCMERGED)
-	$(ROBOT) query --input $< --format csv \
-		       --query $(SPARQLDIR)/simple-seed.sparql $@.1.tmp \
-		       --query $(SPARQLDIR)/{{ project.id }}_terms.sparql $@.2.tmp
-	cat $@.1.tmp $@.2.tmp | sort | uniq > $@
-	echo "http://www.geneontology.org/formats/oboInOwl#SubsetProperty" >> $@
-	echo "http://www.geneontology.org/formats/oboInOwl#SynonymTypeProperty" >> $@
-
-{% endif -%}
-
-{% for format in project.export_formats -%}
-{% if project.gzip_main -%}
-$(ONT).{{ format }}.gz: $(ONT).{{ format }}
-	gzip -c $< > $@.tmp && mv $@.tmp $@
-{% endif -%}
-{% endfor -%}
-{% if 'owl' not in project.export_formats -%}
-{% if project.gzip_main -%}
-$(ONT).owl.gz: $(ONT).owl
-	gzip -c $< > $@.tmp && mv $@.tmp $@
-{% endif -%}
-$(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
-	cp $< $@
-{% endif -%}
-
-# ROBOT pipeline that merges imports, including components.
-ROBOT_RELEASE_IMPORT_MODE={% if project.use_edit_file_imports -%}$(ROBOT) merge --input $< {% if project.import_group is defined and project.import_group.use_base_merging is false and project.import_group.annotate_defined_by %}--annotate-defined-by true{% endif -%}{% else -%}
-$(ROBOT) remove --input $< --select imports --trim false {% if project.use_dosdps or project.components is defined -%}
-merge $(patsubst %, -i %, $(OTHER_SRC)) {% endif %}{% if project.import_group is defined -%}
-merge $(patsubst %, -i %, $(IMPORT_FILES)){% endif %}{% endif %}
-
-# ROBOT pipeline that removes imports, then merges components. This is for release artefacts that start from "base"
-ROBOT_RELEASE_IMPORT_MODE_BASE=$(ROBOT) remove --input $< --select imports --trim false {% if project.use_dosdps or project.components is defined -%}
-merge $(patsubst %, -i %, $(OTHER_SRC)) {% endif %}
-
-{% if 'base' in project.release_artefacts or project.primary_release == 'base' -%}
-# base: A version of the ontology that does not include any externally imported axioms.
-$(ONT)-base.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC) $(IMPORT_FILES)
-	$(ROBOT_RELEASE_IMPORT_MODE) \{% if project.release_use_reasoner %}
-	reason --reasoner $(REASONER) --equivalent-classes-allowed {{ project.allow_equivalents }} --exclude-tautologies {{ project.exclude_tautologies }} --annotate-inferred-axioms {{ project.release_annotate_inferred_axioms|default('false')|lower }} \{% if project.release_materialize_object_properties is defined and project.release_materialize_object_properties %}
-	materialize {% for iri in project.release_materialize_object_properties %}--term {{iri}} {% endfor %} \{% endif %}{% endif %}
-	relax $(RELAX_OPTIONS) \{% if project.release_use_reasoner %}
-	reduce -r $(REASONER) $(REDUCE_OPTIONS) \{% endif %}
-	remove {% if project.namespaces is not none %}{% for iri in project.namespaces %}--base-iri {{iri}} {% endfor %}{% else %}--base-iri $(URIBASE)/{{ project.id.upper() }} {% endif %}--axioms external --preserve-structure false --trim false \
-	$(SHARED_ROBOT_COMMANDS) \
-	annotate --link-annotation http://purl.org/dc/elements/1.1/type http://purl.obolibrary.org/obo/IAO_8000001 \
-		--ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		{% if project.release_date -%} --annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'baselite' in project.release_artefacts or project.primary_release == 'baselite' -%}
-# baselite: All the axioms as they are editted by the editors, excluding reasoning. This is currently the same as "base". Only to be used experimentally (may disappear in future ODK releases).
-$(ONT)-baselite.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC)
-	$(ROBOT_RELEASE_IMPORT_MODE_BASE) \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		{% if project.release_date -%} --annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'full' in project.release_artefacts or project.primary_release == 'full' -%}
-# Full: The full artefacts with imports merged, reasoned.
-$(ONT)-full.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC) $(IMPORT_FILES)
-	$(ROBOT_RELEASE_IMPORT_MODE) \
-		reason --reasoner $(REASONER) --equivalent-classes-allowed {{ project.allow_equivalents }} --exclude-tautologies {{ project.exclude_tautologies }} \{% if project.release_materialize_object_properties is defined and project.release_materialize_object_properties %}
-		materialize {% for iri in project.release_materialize_object_properties %}--term {{iri}} {% endfor %} \{% endif %}
-		relax $(RELAX_OPTIONS) \
-		reduce -r $(REASONER) $(REDUCE_OPTIONS) \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) {% if project.release_date -%}--annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'non-classified' in project.release_artefacts or project.primary_release == 'non-classified' -%}
-# foo-non-classified: (edit->imports-merged)
-$(ONT)-non-classified.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC) $(IMPORT_FILES)
-	$(ROBOT_RELEASE_IMPORT_MODE) \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) {% if project.release_date -%}--annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'simple' in project.release_artefacts or project.primary_release == 'simple' -%}
-# foo-simple: (edit->reason,relax,reduce,drop imports, drop every axiom which contains an entity outside the "namespaces of interest")
-# drop every axiom: filter --term-file keep_terms.txt --trim true
-#	remove --select imports --trim false
-$(ONT)-simple.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC) $(SIMPLESEED) $(IMPORT_FILES) | all_robot_plugins
-	$(ROBOT_RELEASE_IMPORT_MODE) \{% if project.release_use_reasoner %}
-		reason --reasoner $(REASONER) --equivalent-classes-allowed {{ project.allow_equivalents }} --exclude-tautologies {{ project.exclude_tautologies }} --annotate-inferred-axioms {{ project.release_annotate_inferred_axioms|default('false')|lower }} \{% endif %}
-		relax $(RELAX_OPTIONS) \
-		remove --axioms equivalent \
-		filter --term-file $(SIMPLESEED) --select "annotations ontology anonymous self" --trim true --signature true \{% if project.release_use_reasoner %}
-		reduce -r $(REASONER) $(REDUCE_OPTIONS) \{% endif %}
-		odk:normalize --base-iri {{ project.uribase }} --subset-decls true --synonym-decls true \
-		repair --merge-axiom-annotations true \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) {% if project.release_date -%}--annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'simple-non-classified' in project.release_artefacts or project.primary_release == 'simple-non-classified' %}
-# foo-simple-non-classified (edit->relax,reduce,drop imports, drop every axiom which contains an entity outside the "namespaces of interest") - aka the HPO use case, no reason.
-# Should this be the non-classified ontology with the drop foreign axiom filter?
-# Consider adding remove --term "http://www.geneontology.org/formats/oboInOwl#hasOBONamespace"
-$(ONT)-simple-non-classified.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC) $(SIMPLESEED) $(IMPORT_FILES)
-	$(ROBOT_RELEASE_IMPORT_MODE_BASE) \
-		remove --axioms equivalent \{% if project.release_use_reasoner %}
-		reduce -r $(REASONER) $(REDUCE_OPTIONS) \{% endif %}
-		filter --select ontology --term-file $(SIMPLESEED) --trim false \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) {% if project.release_date -%}--annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'international' in project.release_artefacts or project.primary_release == 'international' -%}
-# international: A variant of the primary_release, but with multi-language support.
-$(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
-	$(ROBOT) merge $(patsubst %, -i %, $^) \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) \
-		{% if project.release_date -%} --annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-
-{% if 'basic' in project.release_artefacts or project.primary_release == 'basic' %}
-# foo-basic: A version of -simple containing only relationships using relations on a configurable whitelist (default = BFO:0000050 (?)). 
-# See above (David comment) for explanation.
-# removes any axioms that contains one of the ops that not in the whitelist file
-$(ONT)-basic.owl: $(EDIT_PREPROCESSED) $(OTHER_SRC) $(SIMPLESEED) $(KEEPRELATIONS) $(IMPORT_FILES)
-	$(ROBOT_RELEASE_IMPORT_MODE) \{% if project.release_use_reasoner %}
-		reason --reasoner $(REASONER) --equivalent-classes-allowed {{ project.allow_equivalents }} --exclude-tautologies {{ project.exclude_tautologies }} --annotate-inferred-axioms {{ project.release_annotate_inferred_axioms|default('false')|lower }} \{% endif %}
-		relax $(RELAX_OPTIONS) \
-		remove --axioms equivalent \
-		remove --axioms disjoint \
-		remove --term-file $(KEEPRELATIONS) --select complement --select object-properties --trim true \
-		filter --term-file $(SIMPLESEED) --select "annotations ontology anonymous self" --trim true --signature true \
-		reduce -r $(REASONER) $(REDUCE_OPTIONS) \
-		$(SHARED_ROBOT_COMMANDS) annotate --ontology-iri $(ONTBASE)/$@ $(ANNOTATE_ONTOLOGY_VERSION) {% if project.release_date -%}--annotation oboInOwl:date "$(OBODATE)" {% endif -%}--output $@.tmp.owl && mv $@.tmp.owl $@
-{% endif -%}
-{% for r in project.release_artefacts %}
-{%- if r.startswith('custom-') %}
-{{ r | replace("custom-","")}}.owl:
-	echo "ERROR: You have configured a custom release artefact ($@); this release artefact needs to be define in {{ project.id }}.Makefile!" && false
-{% endif -%}
-{% endfor -%}
 
 # ----------------------------------------
 # Debugging Tools
