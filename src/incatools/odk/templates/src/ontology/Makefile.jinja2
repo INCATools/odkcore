@@ -504,6 +504,16 @@ $(IMPORTSEED):
 # Import modules
 # ----------------------------------------
 
+IMPORT_ROOTS          = {% if project.import_group.use_base_merging -%}
+                        $(IMPORTDIR)/merged_import{# -#}
+                        {% else -%}
+                        $(foreach imp, $(IMPORTS), $(IMPORTDIR)/$(imp)_import){# -#}
+                        {% endif %}
+IMPORT_FILES          = $(foreach r, $(IMPORT_ROOTS), $(r).owl){# -#}
+                        {% if project.import_group.export_obo %} \
+                        $(foreach r, $(IMPORT_ROOTS), $(r).obo){# -#}
+                        {% endif %}
+
 ifeq ($(IMP),true)
 
 {%   if project.import_group.strip_annotation_properties -%}
@@ -703,6 +713,10 @@ $(IMPORTDIR)/%_import.obo: $(IMPORTDIR)/%_import.owl
 
 {%   endif -%}
 endif # IMP=true
+
+.PHONY: all_imports
+all_imports: $(IMPORT_FILES){# -#}
+             {% if project.orcidio_support %} $(IMPORTDIR)/orcidio_import.owl{% endif %}
 
 .PHONY: refresh-imports
 refresh-imports:
@@ -1750,26 +1764,12 @@ $(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
 # Assets definitions and helper targets
 # ----------------------------------------
 
-{% if project.import_group is not none or project.orcidio_support -%}
-{# Most assets are defined in the section they belong to, but imports
-   need to be defined outside of the imports section because we might
-   have to include the ORCIDIO "import", which is managed separately
-   from all other imports -#}
-IMPORT_ROOTS    ={% if project.import_group is not none -%}
-                 {%   if project.import_group.use_base_merging -%} $(IMPORTDIR)/merged_import{# -#}
-                 {%   else %} $(foreach imp, $(IMPORTS), $(IMPORTDIR)/$(imp)_import){# -#}
-                 {%   endif -%}
-                 {% endif -%}
-                 {% if project.orcidio_support %} $(IMPORTDIR)/orcidio_import{% endif %}
-IMPORT_FILES    = $(foreach r, $(IMPORT_ROOTS), $(r).owl){# -#}
-                  {% if project.import_group.export_obo %} \
-                  $(foreach r, $(IMPORT_ROOTS), $(r).obo){# -#}
-                  {% endif %}
-
-{% endif -%}
 ASSETS          = $(MAIN_FILES){# -#}
-                  {% if project.import_group is not none or project.orcidio_support %} \
+                  {% if project.import_group is not none %} \
                   $(IMPORT_FILES){# -#}
+                  {% endif -%}
+                  {% if project.orcidio_support %} \
+                  $(IMPORTDIR)/orcidio_import.owl{# -#}
                   {% endif -%}
                   {% if project.use_dosdps %} \
                   $(PATTERN_RELEASE_FILES){# -#}
@@ -1822,12 +1822,6 @@ RELEASED_ASSETS = $(foreach n, $(RELEASE_ASSETS), $(RELEASEDIR)/$(n)){# -#}
 # The files that must be removed from the src/ontology directory
 # once they have been copied over to the release directory.
 CLEANFILES      = $(MAIN_FILES)
-
-{% if project.import_group is not none or project.orcidio_support -%}
-.PHONY: all_imports
-all_imports: $(IMPORT_FILES)
-
-{% endif -%}
 
 .PHONY: all_assets
 all_assets: $(ASSETS) {% if project.ensure_valid_rdfxml %}check_rdfxml_assets{% endif %}
