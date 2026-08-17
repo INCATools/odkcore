@@ -35,7 +35,7 @@ URIBASE                   = {{ project.uribase }}
 ONT                       = {{ project.id }}
 ONTBASE                   = {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}
 EDIT_FORMAT               = {{ project.edit_format|default('owl') }}
-FORMATS                   = $(sort {% for format in project.export_formats %} {{ format }}{% endfor %} owl)
+FORMATS                   ={% for format in project.export_formats|sort %} {{ format }}{% endfor %}
 RELEASE_ARTEFACTS         = $(sort {% for release in project.release_artefacts %}{% if release.startswith('custom-') %}{{ release | replace("custom-","")}}{% else %}$(ONT)-{{ release }}{% endif %} {% endfor %})
 
 # Directories
@@ -1645,6 +1645,7 @@ $(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
 {%   endif -%}
 {% endfor -%}
 
+{% if project.export_formats|length > 1 or project.export_formats[0] != "owl" -%}
 # Release artefacts: export formats
 # ----------------------------------------
 
@@ -1653,12 +1654,12 @@ $(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
    variants ($(ONT)-base, $(ONT)-full, etc.), so that we do not have
    to duplicate all the code below (once for the primary artefact and
    one when we iterate over the variants. -#}
-{% if "obo" in project.export_formats -%}
+{%   if "obo" in project.export_formats -%}
 $(ONT).obo: $(ONT).owl
 	$(ROBOT) convert --input $< --check false \
 	                 --format obo $(OBO_FORMAT_OPTIONS) --output $@
 
-{% endif -%}
+{%   endif -%}
 {%   if "ttl" in project.export_formats -%}
 {# FIXME: Why are re-annotating? The release.owl product should have
    been annotated already.
@@ -1676,42 +1677,42 @@ $(ONT).json: $(ONT).owl
 	         convert --check false --format json --output $@
 
 {%   endif -%}
-{% for r in project.release_artefacts -%}
-{%   if r.startswith("custom-") -%}
-{%     set release = r | replace("custom-","") -%}
-{%   else -%}
-{%     set release = "$(ONT)-" ~ r -%}
-{%   endif -%}
-{%   if "obo" in project.export_formats -%}
+{%   for r in project.release_artefacts -%}
+{%     if r.startswith("custom-") -%}
+{%       set release = r | replace("custom-","") -%}
+{%     else -%}
+{%       set release = "$(ONT)-" ~ r -%}
+{%     endif -%}
+{%     if "obo" in project.export_formats -%}
 {{ release }}.obo: {{ release }}.owl
 	$(ROBOT) convert --input $< --check false \
 	                 --format obo $(OBO_FORMAT_OPTIONS) --output $@
 
-{%   endif -%}
-{%   if "ttl" in project.export_formats -%}
+{%     endif -%}
+{%     if "ttl" in project.export_formats -%}
 {{ release }}.ttl: {{ release }}.owl
 	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	         convert --check false --format ttl --output $@
 
-{%   endif -%}
-{%   if "json" in project.export_formats -%}
+{%     endif -%}
+{%     if "json" in project.export_formats -%}
 {{ release }}.json: {{ release }}.owl
 	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	         convert --check false --format json --output $@
 
-{%   endif -%}
-{% endfor -%}
+{%     endif -%}
+{%   endfor -%}
 
-{% if 'db' in project.export_formats -%}
+{%   if 'db' in project.export_formats -%}
 
-{% if project.use_context -%}
+{%     if project.use_context -%}
 CONTEXT_FILE_CSV = $(TMPDIR)/context.csv
 $(CONTEXT_FILE_CSV): $(CONTEXT_FILE) | $(TMPDIR)
 	@odk-helper context2csv $< > $@
 
-{% endif -%}
+{%     endif -%}
 
 %.db: %.owl{% if project.use_context %} $(CONTEXT_FILE_CSV){% endif %}
 	@rm -f $*.db $*-relation-graph.tsv.gz .template.db .template.db.tmp
@@ -1719,25 +1720,27 @@ $(CONTEXT_FILE_CSV): $(CONTEXT_FILE) | $(TMPDIR)
 	@rm -f $*-relation-graph.tsv.gz .template.db .template.db.tmp
 	@test -f $*.db || (echo "SQLite/SemSQL generation failed" && exit 1)
 
-{% endif -%}
+{%   endif -%}
 
-{% for format in project.export_formats -%}
-{%   if project.gzip_main -%}
+{%   for format in project.export_formats -%}
+{%     if project.gzip_main -%}
 $(ONT).{{ format }}.gz: $(ONT).{{ format }}
 	gzip -c $< > $@
 
-{%   endif -%}
-{% endfor -%}
-{% if 'owl' not in project.export_formats -%}
-{%   if project.gzip_main -%}
+{%     endif -%}
+{%   endfor -%}
+{%   if 'owl' not in project.export_formats -%}
+{%     if project.gzip_main -%}
 $(ONT).owl.gz: $(ONT).owl
 	gzip -c $< > $@
 
-{%   endif -%}
+{%     endif -%}
 $(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
 	cp $< $@
 
-{% endif -%}
+{%   endif -%}
+
+{% endif %}{# !if project.export_formats|length > 1 or project.export_formats[0] != "owl" -#}
 
 {# #}
 # ----------------------------------------

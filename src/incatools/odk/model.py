@@ -1209,3 +1209,7 @@ class OntologyProject(JsonSchemaMixin):
             or self.public_release == "github_python"
         ):
             self.public_release = "github"
+
+        # Exporting to OWL is mandatory, even if not explicitly listed
+        if not "owl" in self.export_formats:
+            self.export_formats.append("owl")
