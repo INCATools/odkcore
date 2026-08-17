@@ -869,8 +869,15 @@ endif
 # SSSOM mappings sets
 # ----------------------------------------
 
-MAPPING_TESTER = sssom validate
-SSSOMPY        = sssom
+MAPPINGS               ={% for m in project.sssom_mappingset_group.products %} {{ m.id }}{% endfor %}
+RELEASED_MAPPINGS      ={% for m in project.sssom_mappingset_group.released_products %} {{ m.id }}{% endfor %}
+MAPPING_FILES          = $(foreach m, $(MAPPINGS), $(MAPPINGDIR)/$(m).sssom.tsv)
+RELEASED_MAPPING_FILES = $(foreach m, $(RELEASED_MAPPINGS), $(MAPPINGDIR)/$(m).sssom.tsv)
+MAPPING_TESTER         = sssom validate
+SSSOMPY                = sssom
+
+.PHONY: all_mappings
+all_mappings: $(MAPPING_FILES)
 
 validate-sssom-%:
 	tsvalid $(MAPPINGDIR)/$*.sssom.tsv --comment "#"
@@ -946,6 +953,12 @@ $(MAPPINGDIR)/{{ mapping.id }}.sssom.tsv:
 {%   if project.bridge_group is not none -%}
 # Bridge files
 # ----------------------------------------
+
+BRIDGES      ={% for bridge in project.bridge_group.products %} {{ bridge.id }}{% endfor %}
+BRIDGE_FILES = $(foreach b, $(BRIDGES), $(BRIDGEDIR)/$(b).owl)
+
+.PHONY: all_bridges
+all_bridges: $(BRIDGE_FILES)
 
 {%     for bridge in project.bridge_group.products -%}
 {%       if bridge.bridge_type == "sssom" -%}
@@ -1185,10 +1198,16 @@ endif
 
 {% endif %}{# !project.use_dosdps -#}
 
-{% if project.subset_group is defined -%}
+{% if project.subset_group is not none -%}
 # ----------------------------------------
 # Subsets
 # ----------------------------------------
+
+SUBSETS      ={% for s in project.subset_group.products %} {{ s.id }}{% endfor %}
+SUBSET_FILES = $(foreach s, $(SUBSET), $(foreach f, $(sort $(FORMATS) tsv), $(SUBSETDIR)/$(s).$(f)))
+
+.PHONY: all_subsets
+all_subsets: $(SUBSET_FILES)
 
 $(SUBSETDIR)/%.tsv: $(SUBSETDIR)/%.owl
 	$(ROBOT) export --input $< --include classes \
@@ -1354,6 +1373,15 @@ ROBOT_RELEASE_IMPORT_MODE_BASE = $(ROBOT) remove --input $< --select imports --t
                                  {% if project.use_dosdps or project.components is not none %} \
                                           merge $(foreach src, $(OTHER_SRC), --input $(src)){# -#}
                                  {% endif %}
+
+MAIN_PRODUCTS = $(sort $(foreach a, $(RELEASE_ARTEFACTS), $(a)) $(ONT))
+MAIN_FILES    = $(foreach p, $(MAIN_PRODUCTS), $(foreach f, $(FORMATS), $(p).$(f))){# -#}
+                {% if project.gzip_main %} \
+                $(foreach f, $(FORMATS), $(ONT).$(f).gz){# -#}
+                {% endif %}
+
+.PHONY: all_main
+all_main: $(MAIN_FILES)
 
 # Release artefacts: main pipelines
 # ----------------------------------------
@@ -1713,95 +1741,51 @@ $(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
 
 {# #}
 # ----------------------------------------
-# Release assets
+# Release management
 # ----------------------------------------
 
-MAIN_PRODUCTS = $(sort $(foreach r,$(RELEASE_ARTEFACTS), $(r)) $(ONT))
-MAIN_GZIPPED  = {% if project.gzip_main %}$(foreach f,$(FORMATS), $(ONT).$(f).gz){% endif %}
-MAIN_FILES    = $(foreach n,$(MAIN_PRODUCTS), $(foreach f,$(FORMATS), $(n).$(f))) $(MAIN_GZIPPED)
-
-.PHONY: all_main
-all_main: $(MAIN_FILES)
-
-# ----------------------------------------
-# Import assets
+# Assets definitions and helper targets
 # ----------------------------------------
 
-IMPORT_ROOTS = {% if project.import_group.use_base_merging %} $(IMPORTDIR)/merged_import{% else %}$(patsubst %, $(IMPORTDIR)/%_import, $(IMPORTS)){% endif %}{% if project.orcidio_support %} $(IMPORTDIR)/orcidio_import{% endif %}
-IMPORT_OWL_FILES = $(foreach n,$(IMPORT_ROOTS), $(n).owl)
-{%- if project.import_group.export_obo %}
-IMPORT_OBO_FILES = $(foreach n,$(IMPORT_ROOTS), $(n).obo)
-IMPORT_FILES = $(IMPORT_OWL_FILES) $(IMPORT_OBO_FILES)
-
-{% else %}
-IMPORT_FILES = $(IMPORT_OWL_FILES)
-{% endif %}
-
-.PHONY: all_imports
-all_imports: $(IMPORT_FILES)
-
-# ----------------------------------------
-# Subset assets
-# ----------------------------------------
-
-{% if project.subset_group is defined %}
-SUBSETS = {% for x in project.subset_group.products %} {{ x.id }}{% endfor %}
-{% else %}
-SUBSETS =
-{% endif %}
-SUBSET_ROOTS = $(patsubst %, $(SUBSETDIR)/%, $(SUBSETS))
-SUBSET_FILES = $(foreach n,$(SUBSET_ROOTS), $(foreach f,$(sort $(FORMATS) tsv), $(n).$(f)))
-
-.PHONY: all_subsets
-all_subsets: $(SUBSET_FILES)
-
-# ----------------------------------------
-# Mapping assets
-# ----------------------------------------
-
-{% if project.sssom_mappingset_group is defined %}
-MAPPINGS = {% for x in project.sssom_mappingset_group.products %} {{ x.id }}{% endfor %}
-{% if project.sssom_mappingset_group.released_products is defined %}
-RELEASED_MAPPINGS = {% for x in project.sssom_mappingset_group.released_products %} {{ x.id }}{% endfor %}{% endif %}
-{% else %}
-MAPPINGS =
-{% endif %}
-MAPPING_FILES = $(foreach p, $(MAPPINGS), $(MAPPINGDIR)/$(p).sssom.tsv)
-RELEASED_MAPPING_FILES = $(foreach p, $(RELEASED_MAPPINGS), $(MAPPINGDIR)/$(p).sssom.tsv)
-
-.PHONY: all_mappings
-all_mappings: $(MAPPING_FILES)
-
-# ----------------------------------------
-# Bridge assets
-# ----------------------------------------
-
-{% if project.bridge_group is not none -%}
-BRIDGES ={% for bridge in project.bridge_group.products %} {{ bridge.id }}{% endfor %}
-BRIDGE_FILES = $(foreach bridge, $(BRIDGES), $(BRIDGEDIR)/$(bridge).owl)
-
-.PHONY: all_bridges
-all_bridges: $(BRIDGE_FILES)
-
-{% else -%}
-BRIDGE_FILES =
+{% if project.import_group is not none or project.orcidio_support -%}
+{# Most assets are defined in the section they belong to, but imports
+   need to be defined outside of the imports section because we might
+   have to include the ORCIDIO "import", which is managed separately
+   from all other imports -#}
+IMPORT_ROOTS    ={% if project.import_group is not none -%}
+                 {%   if project.import_group.use_base_merging -%} $(IMPORTDIR)/merged_import{# -#}
+                 {%   else %} $(foreach imp, $(IMPORTS), $(IMPORTDIR)/$(imp)_import){# -#}
+                 {%   endif -%}
+                 {% endif -%}
+                 {% if project.orcidio_support %} $(IMPORTDIR)/orcidio_import{% endif %}
+IMPORT_FILES    = $(foreach r, $(IMPORT_ROOTS), $(r).owl){# -#}
+                  {% if project.import_group.export_obo %} \
+                  $(foreach r, $(IMPORT_ROOTS), $(r).obo){# -#}
+                  {% endif %}
 
 {% endif -%}
+ASSETS          = $(MAIN_FILES){# -#}
+                  {% if project.import_group is not none or project.orcidio_support %} \
+                  $(IMPORT_FILES){# -#}
+                  {% endif -%}
+                  {% if project.use_dosdps %} \
+                  $(PATTERN_RELEASE_FILES){# -#}
+                  {% endif -%}
+                  {% if project.use_translations %} \
+                  $(TRANSLATION_FILES){# -#}
+                  {% endif -%}
+                  {% if project.subset_group is not none %} \
+                  $(SUBSET_FILES){# -#}
+                  {% endif -%}
+                  {% if project.use_mappings %} \
+                  $(MAPPING_FILES){# -#}
+                  {% endif -%}
+                  {% if project.bridge_group is not none %} \
+                  $(BRIDGE_FILES){# -#}
+                  {% endif %} \
+                  $(REPORT_FILES)
 
-# ----------------------------------------
-# Release assets
-# ----------------------------------------
-
-ASSETS = \
-  $(IMPORT_FILES) \
-  $(MAIN_FILES) \{% if project.use_dosdps %}
-  $(PATTERN_RELEASE_FILES) \{% endif %}{% if project.use_translations %}
-  $(TRANSLATION_FILES) \{% endif %}
-  $(REPORT_FILES) \
-  $(SUBSET_FILES) \
-  $(MAPPING_FILES) \
-  $(BRIDGE_FILES)
-
+# All the files that are part of a release (excepted mappings).
 {# This does not include mappings (which can optionally be released),
    because those are stored in src/mappings, and the fact that this is
    one directory _above_ the directory where this Makefile is would
@@ -1809,104 +1793,103 @@ ASSETS = \
    single rsync commmand to copy all release assets except mappings to
    the release directory). Basically, this is "all release assets that
    are in this src/ontology directory". -#}
-RELEASE_ASSETS = \
-  $(MAIN_FILES) {% if project.import_group is defined %}{% if project.import_group.release_imports %}$(IMPORT_FILES) {% endif %}{% endif %}\
-  $(SUBSET_FILES){% if project.robot.report.release_reports %} \
-  $(REPORT_FILES){% endif %}\
-  $(BRIDGE_FILES)
+RELEASE_ASSETS  = $(MAIN_FILES){# -#}
+                  {% if project.import_group.release_imports %} \
+                  $(IMPORT_FILES){# -#}
+                  {% endif -%}
+                  {% if project.subset_group is not none %} \
+                  $(SUBSET_FILES){# -#}
+                  {% endif -%}
+                  {% if project.bridge_group is not none %} \
+                  $(BRIDGE_FILES){# -#}
+                  {% endif -%}
+                  {% if project.robot.report.release_reports %} \
+                  $(REPORT_FILES){# -#}
+                  {% endif %}
+
+# All the files that are part of a release, in their final location
+# within the released directory.
+{# This must be kept in sync with what the copy_release_files rule below
+   does -- that is, this should list all files copied by that rule. -#}
+RELEASED_ASSETS = $(foreach n, $(RELEASE_ASSETS), $(RELEASEDIR)/$(n)){# -#}
+                  {% if project.sssom_mappingset_group.released_products is defined %}
+                  $(foreach n, $(RELEASED_MAPPINGS), $(RELEASEDIR)/mappings/$(n).sssom.tsv){# -#}
+                  {% endif %}
+
+# The files that must be removed from the src/ontology directory
+# once they have been copied over to the release directory.
+CLEANFILES      = $(MAIN_FILES)
+
+{% if project.import_group is not none or project.orcidio_support -%}
+.PHONY: all_imports
+all_imports: $(IMPORT_FILES)
+
+{% endif -%}
 
 .PHONY: all_assets
 all_assets: $(ASSETS) {% if project.ensure_valid_rdfxml %}check_rdfxml_assets{% endif %}
 
 .PHONY: show_assets
 show_assets:
-	echo $(ASSETS)
-	du -sh $(ASSETS)
+	@echo $(ASSETS)
+	@du -sh $(ASSETS)
 
+{# FIXME: This does not really belong here. -#}
 check_rdfxml_%: %
 	@odk-helper check-rdfxml {% if project.extra_rdfxml_checks %}--jena --rdflib {% endif %}$<
 
 .PHONY: check_rdfxml_assets
-check_rdfxml_assets: $(foreach product,$(MAIN_PRODUCTS),check_rdfxml_$(product).owl)
+check_rdfxml_assets: $(foreach product, $(MAIN_PRODUCTS), check_rdfxml_$(product).owl)
 
+# Release preparation
 # ----------------------------------------
-# Release Management
-# ----------------------------------------
 
-
-CLEANFILES=$(MAIN_FILES) $(SRCMERGED) $(EDIT_PREPROCESSED)
-
-# This should be executed by the release manager whenever time comes to make a release.
-# It will ensure that all assets/files are fresh, and will copy to release folder
+# This is the main release workflow that should be executed by the release
+# manager whenever the time comes to make a release. It will ensure that
+# all assets are fresh, and copy them over to the release directory.
 .PHONY: prepare_release
 prepare_release: all_odk
 	$(MAKE) copy_release_files
 	rm -f $(CLEANFILES)
-	@echo "Release files are now in $(RELEASEDIR) - now you should commit, push and make a release \
-        on your git hosting site such as GitHub or GitLab"
+	@echo "INFO: Release files are now in $(RELEASEDIR); now you should commit,"
+	@echo "      push and make release on your Git hosting site."
 
 .PHONY: prepare_release_fast
 prepare_release_fast:
-	$(MAKE) prepare_release IMP=false PAT=false MIR=false COMP=false
+	$(MAKE_FAST) prepare_release
 
-# This rule does the bulk of the work for prepare_release, copying all
-# files to the release directory. It is mostly intended for internal
-# use, by the prepare_release rule itself or by other ODK scripts.
+{# This rule does the bulk of the work for prepare_release, copying all
+   files to the release directory. It is mostly intended for internal
+   use, by the prepare_release rule itself or by other ODK scripts. -#}
 .PHONY: copy_release_files
 copy_release_files:
-	rsync -R $(RELEASE_ASSETS) $(RELEASEDIR){% if project.sssom_mappingset_group is defined %}{% if project.sssom_mappingset_group.released_products is defined %}
+	rsync -R $(RELEASE_ASSETS) $(RELEASEDIR){# -#}
+	{% if project.sssom_mappingset_group.released_products is defined %}
 	mkdir -p $(RELEASEDIR)/mappings
-	cp -rf $(RELEASED_MAPPING_FILES) $(RELEASEDIR)/mappings{% endif %}{% endif %}
-
-# All released assets, in their final location within the release
-{# ODK devs: keep that in sync with the copy_release_files rule above
-   -- that is, this should list all files copied by that rule. -#}
-RELEASE_ASSETS_AFTER_RELEASE=$(foreach n,$(RELEASE_ASSETS), $(RELEASEDIR)/$(n)){% if project.sssom_mappingset_group is defined %}{% if project.sssom_mappingset_group.released_products is defined %} \
-			     $(foreach n,$(RELEASED_MAPPINGS), $(RELEASEDIR)/mappings/$(n).sssom.tsv){% endif %}{% endif %}
+	cp -rf $(RELEASED_MAPPING_FILES) $(RELEASEDIR)/mappings{# -#}
+	{% endif %}
 
 .PHONY: show_release_assets
 show_release_assets:
-	@echo $(RELEASE_ASSETS_AFTER_RELEASE)
+	@echo $(RELEASED_ASSETS)
 
-CURRENT_RELEASE=$(ONTBASE).owl
-
-$(TMPDIR)/current-release.owl:
-	wget $(CURRENT_RELEASE) -O $@
-
-$(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
-	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
-
-
-
-
-
+# Publication
 # ----------------------------------------
-# Debugging Tools
-# ----------------------------------------
-
-explain_unsat: $(EDIT_PREPROCESSED) 
-	$(ROBOT) explain -i $< -M unsatisfiability --unsatisfiable random:10 --explanation $(TMPDIR)/$@.md
 
 {% if project.public_release == 'github' -%}
-# ----------------------------------------
-# GitHub release
-# ----------------------------------------
-
 GHVERSION = v$(VERSION)
 
 .PHONY: public_release
 public_release:
-	@echo "Pushing public release $(GHVERSION)..."
-	@ls -alt $(RELEASE_ASSETS_AFTER_RELEASE)
-	@gh release create $(GHVERSION) \
-		           --title "$(VERSION) Release" \
-		           --generate-notes \
-		           $(RELEASE_ASSETS_AFTER_RELEASE)
+	@echo "Pushing public release $(GHVERSION) to GitHub..."
+	@echo "Assets to be pushed:"
+	@ls -alt $(RELEASED_ASSETS)
+	@gh release create $(GHVERSION)
+	                   --title "$(VERSION Release" \
+	                   --generate-notes \
+	                   $(RELEASED_ASSETS)
 
 {% else -%}
-# ----------------------------------------
-# Public release
-# ----------------------------------------
 
 .PHONY: public_release
 public_release:
@@ -1916,6 +1899,15 @@ public_release:
 	@false
 
 {% endif -%}
+{# #}
+
+# ----------------------------------------
+# Debugging Tools
+# ----------------------------------------
+
+explain_unsat: $(EDIT_PREPROCESSED) 
+	$(ROBOT) explain -i $< -M unsatisfiability --unsatisfiable random:10 --explanation $(TMPDIR)/$@.md
+
 
 # ----------------------------------------
 # General Validation
@@ -1935,6 +1927,14 @@ validate-all-tsv: $(ALL_TSV_FILES)
 # ----------------------------------------
 # Editors Utilities
 # ----------------------------------------
+
+CURRENT_RELEASE=$(ONTBASE).owl
+
+$(TMPDIR)/current-release.owl:
+	wget $(CURRENT_RELEASE) -O $@
+
+$(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
+	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
 
 # This is an experimental target people that want to use ODK Extended Prefix Map (EPM)
 # can use to pull the (currently inofficial) OBO EPM into the workspace.
