@@ -1899,39 +1899,8 @@ public_release:
 {# #}
 
 # ----------------------------------------
-# Debugging Tools
+# Utilities
 # ----------------------------------------
-
-explain_unsat: $(EDIT_PREPROCESSED) 
-	$(ROBOT) explain -i $< -M unsatisfiability --unsatisfiable random:10 --explanation $(TMPDIR)/$@.md
-
-
-# ----------------------------------------
-# General Validation
-# ----------------------------------------
-TSV=
-ALL_TSV_FILES={% if project.use_dosdps %}{% if project.pattern_pipelines_group is defined -%}{% for pipeline in project.pattern_pipelines_group.products %}$(DOSDP_TSV_FILES_{{ pipeline.id | upper }}) {% endfor %}{% endif %}$(DOSDP_TSV_FILES_DEFAULT){% endif %}
-
-validate-tsv: $(TSV) | $(TMPDIR)
-	for FILE in $< ; do \
-		tsvalid $$FILE > $(TMPDIR)/validate.txt; \
-		if [ -s $(TMPDIR)/validate.txt ]; then cat $(TMPDIR)/validate.txt && exit 1; fi ; \
-	done
-
-validate-all-tsv: $(ALL_TSV_FILES)
-	$(MAKE) validate-tsv TSV="$^"
-
-# ----------------------------------------
-# Editors Utilities
-# ----------------------------------------
-
-CURRENT_RELEASE=$(ONTBASE).owl
-
-$(TMPDIR)/current-release.owl:
-	wget $(CURRENT_RELEASE) -O $@
-
-$(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
-	$(ROBOT) diff --labels true --left $(TMPDIR)/current-release.owl --right $(ONT).owl -f markdown -o $@
 
 # This is an experimental target people that want to use ODK Extended Prefix Map (EPM)
 # can use to pull the (currently inofficial) OBO EPM into the workspace.
@@ -1940,113 +1909,202 @@ $(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
 $(EXTENDED_PREFIX_MAP): $(ODK_RESOURCES_DIR)/obo.epm.json
 	cp $< $@
 
-{% if 'obo' in project.edit_format -%}
-.PHONY: normalize_obo_src
-normalize_obo_src: $(SRC) | all_robot_plugins
-	$(ROBOT) repair -i $< --merge-axiom-annotations true \
-		 convert -o $(TMPDIR)/NORM.tmp.obo && \
-	mv $(TMPDIR)/NORM.tmp.obo $(SRC)
-{%- endif %}
-
-.PHONY: normalize_src
-normalize_src: $(SRC)
-	$(ROBOT) convert -i $< -f {% if 'obo' == project.edit_format %}obo --check false{% else %}ofn{% endif %} -o $(TMPDIR)/normalise && mv $(TMPDIR)/normalise $<
+# Repository maintenance
+# ----------------------------------------
 
 .PHONY: validate_idranges
 validate_idranges:
 	if [ -f {{ project.id }}-idranges.owl ]; then \
-		dicer-cli policy --assume-manchester --show-owlapi-error {{ project.id }}-idranges.owl ; \
+	        dicer-cli policy --assume-manchester --show-owlapi-error {{ project.id }}-idranges.owl ; \
 	fi
 
-# Deprecated: Use 'sh run.sh odk.py update' without using the Makefile.
+# Deprecated: Use 'sh run.sh odk update' without using the Makefile.
 .PHONY: update_repo
 update_repo:
-	odk.py update
-	
-{% if project.documentation is not none %}
+	odk update
+
+{% if project.documentation is not none -%}
+.PHONY:
 update_docs:
 	mkdocs gh-deploy --config-file ../../mkdocs.yaml
-{%- endif %}
 
-# Note to future generations: computing the real path relative to the
-# current directory is a way to ensure we only clean up directories that
-# are located below the current directory, regardless of the contents of
-# the *DIR variables.
+{% endif -%}
+
+{# Note to future generations: computing the real path relative to the
+   current directory is a way to ensure we only clean up directories
+   that are located below the current directory, regardless of the
+   contents of the *DIR variables. -#}
 .PHONY: clean
-clean:{% if project.use_dosdps %}
-	$(MAKE) pattern_clean{%- endif %}
-	for dir in $(MIRRORDIR) $(TMPDIR) ; do      \
-		reldir=$$(realpath --relative-to=$$(pwd) $$dir) ;    \
-		case $$reldir in .*|"") ;; *) rm -rf $$reldir/* ;; esac \
+clean:
+	{% if project.use_dosdps -%}
+	$(MAKE) pattern_clean
+	{% endif -%}
+	for dir in $(MIRRORDIR) $(TMPDIR) ; do \
+	        reldir=$$(realpath --relative-to=$$(pwd) $$dir) ; \
+	        case $$reldir in .*|"") ;; *) rm -rf $$reldir/* ;; esac \
 	done
 	rm -f $(CLEANFILES)
-	rm -f $(TMPDIR)/download-*.info
+
+{% if "obo" == project.edit_format -%}
+.PHONY: normalize_obo_src
+normalize_obo_src: $(SRC) | all_robot_plugins
+	$(ROBOT) repair --input $< --merge-axiom-annotations true \
+	         convert --output $<
+
+{% endif -%}
+
+.PHONY: normalize_src
+normalize_src: $(SRC)
+	$(ROBOT) convert --input $< --format {# -#}
+	                 {% if "obo" == project.edit_format -%}
+	                 obo --check false {# -#}
+	                 {% else -%}
+	                 ofn {# -#}
+	                 {% endif -%}
+	                 --output $<
+
+# Debugging tools
+# ----------------------------------------
+
+.PHONY: explain_unsat
+explain_unsat: $(EDIT_PREPROCESSED)
+	$(ROBOT) explain --input $< \
+	                 --mode unsatisfiability --unsatisfiable random:10 \
+	                 --explanation $(TMPDIR)/$@.md
+
+# Validation of TSV files
+# ----------------------------------------
+
+{% if project.use_dosdps -%}
+ALL_TSV_FILES = $(DOSDP_TSV_FILES_DEFAULT){# -#}
+                {% if project.pattern_pipelines_group is not none -%}
+                {%   for pipeline in project.pattern_pipelines_group.products %} \
+                $(DOSDP_TSV_FILES_{{ pipeline.id | upper }}){# -#}
+                {%   endfor -%}
+                {% endif %}
+
+.PHONY: validate-all-tsv
+validate-all-tsv: $(ALL_TSV_FILES)
+	$(MAKE) validate-tsv TSV="$^"
+
+{% endif -%}
+
+{# FIXME: This is of dubious usefulness; if the user needs to validate
+   an arbitrary TSV file, she might as well run "tsvalid the-file.tsv". -#}
+.PHONY: validate-tsv
+validate-tsv: $(TSV) | $(TMPDIR)
+	for FILE in $< ; do \
+	        tsvalid $$FILE > $(TMPDIR)/validate-tsv.txt ; \
+	        [ ! -s $(TMPDIR)/validate-tsv.txt ] || (cat $(TMPDIR)/validate-tsv ; false) ; \
+	done
+
+# "Release diff"
+# ----------------------------------------
+
+# This produces a diff between the last local build of the ontology
+# and the version currently available online,
+{# FIXME: This is quite OBO-specific. -#}
+CURRENT_RELEASE = $(ONTBASE).owl
+
+$(TMPDIR)/current-release.owl:
+	wget $(CURRENT_RELEASE) --output-document $@
+
+$(REPORTDIR)/release-diff: $(ONT).owl $(TMPDIR)/current-release.owl
+	$(ROBOT) diff --left $(TMPDIR)/current-release.owl \
+	              --right $(ONT).owl \
+	              --labels true --format markdown --output $@
+
+
+# ----------------------------------------
+# Online help
+# ----------------------------------------
 
 .PHONY: help
 help:
-	@echo "$$data"
+	@echo "$$ODK_HELP_MESSAGE"
 
-define data
-Usage: [IMAGE=(odklite|odkfull)] [ODK_DEBUG=yes] sh run.sh make [(IMP|MIR|IMP_LARGE|PAT)=(false|true)] command
+define ODK_HELP_MESSAGE
+Usage: [IMAGE=(odklite|odkfull)] [ODK_DEBUG=yes] sh run.sh make [(MIR|IMP|IMP_LARGE|COMP|PAT)=(false|true)] command
+
+   or: odkrun [--lite] [--debug] make [(MIR|IMP|IMP_LARGE|COMP|PAT)=(false|true)] command
 
 ----------------------------------------
 	Command reference
 ----------------------------------------
 
 Core commands:
-* prepare_release:	Run the entire release pipeline. Use make IMP=false prepare_release to avoid rerunning the imports
-* prepare_release_fast:	Run the entire release pipeline without refreshing imports, recreating components or recompiling patterns.
-* update_repo:		Update the ODK repository setup using the config file {{ project.id }}-odk.yaml (DEPRECATED)
-* test:			Running all validation tests
-* test_fast:		Runs the test suite, but without updating imports or components
+* prepare_release:	Run the entire release pipeline. Use make MIR=false prepare_release to
+			avoid refreshing remote resources.
+* prepare_release_fast:	Run the entire release pipeline without refreshing imports, recreating
+			components or recompiling patterns.
+* test:			Running all validation tests.
+* test_fast:		Runs the test suite, but without updating imports or components.
 * odkversion:		Show the current version of the ODK Makefile and ROBOT.
-* clean:		Delete all temporary files
-* help:			Print ODK Usage information
-* public_release:	Uploads the release file to a release management system, such as GitHub releases. Must be configured.
+* clean:		Delete all temporary files.
+* help:			Print ODK Usage information.
+* public_release:	Uploads the release file to a release management system, such as GitHub
+			releases. Must be configured.
 
-{% if project.import_group is defined %}
+{% if project.import_group is not none -%}
 Imports management:
 * refresh-imports:			Refresh all imports and mirrors.
 * recreate-components:			Recreate all components.
 * no-mirror-refresh-imports:		Refresh all imports without downloading mirrors.
-* refresh-imports-excluding-large:	Refresh all imports and mirrors, but skipping the ones labelled as 'is_large'.
-* refresh-%:				Refresh a single import, i.e. refresh-go will refresh 'imports/go_import.owl'.
-* no-mirror-refresh-%:			Refresh a single import without updating the mirror, i.e. refresh-go will refresh 'imports/go_import.owl'.
+* refresh-imports-excluding-large:	Refresh all imports and mirrors, but skipping the ones labelled
+					as 'is_large'.
+{% if not project.import_group.use_base_merging -%}
+* refresh-%:				Refresh a single import
+					(i.e. refresh-go will refresh 'imports/go_import.owl').
+* no-mirror-refresh-%:			Refresh a single import without updating the mirror
+					(i.e. refresh-go will refresh 'imports/go_import.owl').
+{% endif -%}
 * mirror-%:				Refresh a single mirror.
-{% endif %}{% if project.use_dosdps %}
+
+{% endif -%}
+{% if project.use_dosdps -%}
 DOSDP templates
-* dosdp:			Run the DOSDP patterns pipeline: Run tests, then build OWL files from the tables.
-* patterns:			Alias of the 'dosdp' command
-* pattern_clean:		Delete all temporary pattern files
-* dosdp_validation:		Run all validation checks on DOSDP template files and tables
-* pattern_schema_checks:	Alias of the 'dosdp_validation' command
-* update_patterns:		Pull updated patterns listed in dosdp-patterns/external.txt
-* dosdp-matches-%:		Run the DOSDP matches/query pipeline as configured in your {{ project.id }}-odk.yaml file.
+* dosdp:			Run the DOSDP patterns pipeline: Run tests, then build OWL files
+				from the tables.
+* patterns:			Alias of the 'dosdp' command.
+* pattern_clean:		Delete all temporary pattern files.
+* dosdp_validation:		Run all validation checks on DOSDP template files and tables.
+* pattern_schema_checks:	Alias of the 'dosdp_validation' command.
+* update_patterns:		Pull updated patterns listed in dosdp-patterns/external.txt.
+* dosdp-matches-%:		Run the DOSDP matches/query pipeline as configured in your project.
 * dosdp-docs-%:                 Generate the documentation for a given DOSDP pipeline.
-{% endif %}
+
+{% endif -%}
 Editor utilities:
-* validate_idranges:	Make sure your ID ranges file is formatted correctly
-* normalize_src:	Load and save your {{ project.id }}-edit file after you to make sure its serialised correctly{% if 'obo' in project.edit_format %}
-* normalize_obo_src:	Load and save your {{ project.id }}-edit.obo file after you to merge duplicate annotation assertions{% endif %}
-* explain_unsat:	If you have unsatisfiable classes, this command will create a markdown file (tmp/explain_unsat.md) which will explain all your unsatisfiable classes
-* validate-all-tsv:	Check all your tsv files for possible problems in syntax. Use ALL_TSV_FILES variable to list files
-* validate-tsv:		Check a tsv file for syntactic problems with tsvalid. Use TSV variable to pass filepath, e.g. make TSV=../my.tsv validate-tsv.
-* release_diff:	Create a diff between the current release and the new release
+* validate_idranges:	Make sure your ID ranges file is formatted correctly.
+* normalize_src:	Load and save your {{ project.id }}-edit file after you to make sure it is
+			serialised correctly
+{% if "obo" == project.edit_format -%}
+* normalize_obo_src:	Load and save your {{ project.id }}-edit.obo file after you to merge
+			duplicate annotation assertions.
+{% endif -%}
+* explain_unsat:	Produce explanations (in $(TMPDIR)/explain_unsat.md) for a random sample of
+			unsatisfiable classes in your ontology (if any).
+{% if project.use_dosdps -%}
+* validate-all-tsv:	Check all your tsv files for possible problems in syntax.
+{% endif -%}
+* release_diff:		Create a diff between the current release and the new release
 
-Additional build commands (advanced users)
-* all:			Run the entire pipeline (like prepare_release), but without copying the release files to the release directory.
-* all_subsets:		Build all subsets
-* custom_reports:	Generate all custom sparql reports you have configured in your {{ project.id }}-odk.yaml file.
-* all_assets:		Build all assets
-* show_assets:		Print a list of all assets that would be build by the release pipeline
-* all_mappings:		Update all SSSOM mapping sets
+Additional build commands (advanced users):
+* all:			Run the entire pipeline (like prepare_release), but without copying the
+			release files to the release directory.
+* all_subsets:		Build all subsets.
+* custom_reports:	Generate all custom sparql reports you have configured in your project.
+* all_assets:		Build all assets.
+* show_assets:		Print a list of all assets that would be build by the release pipeline.
+* all_mappings:		Update all SSSOM mapping sets.
 
-Additional QC commands (advanced users)
-* robot_reports:	Run all configured ROBOT reports
-* validate_profile_%:	Run an OWL2 DL profile validation check, for example validate_profile_{{ project.id }}-edit.owl.
-* reason_test: Run a basic reasoning test
+Additional QC commands (advanced users):
+* robot_reports:	Run all configured ROBOT reports.
+* validate_profile_%:	Run an OWL2 DL profile validation check on an arbitrary file
+			(i.e. validate_profile_{{ project.id }}-edit.owl).
+* reason_test:		Run a basic reasoning test.
 
-Examples: 
+Examples:
 * sh run.sh make IMP=false prepare_release
 * sh run.sh make test
 
@@ -2055,13 +2113,16 @@ Tricks:
   invoke the 'clean' target (which will wipe out intermediate files)
   or touch a file that your target depends on (typically the -edit file).
 * Use the IMAGE parameter to the run.sh script to use a different image like odklite
+  (or use odkrun's --image option).
 * Use ODK_DEBUG=yes sh run.sh make ... to print information about timing and debugging
+  (or use odkrun's --debug option).
 
 Updating the repository:
 (to apply changes to the ODK configuration or switch to a newer ODK version)
 * sh run.sh update_repo
+  (or odkrun odk update)
 
 endef
-export data
+export ODK_HELP_MESSAGE
 
 include {{ project.id }}.Makefile
