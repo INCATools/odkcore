@@ -71,7 +71,7 @@ MAPPINGDIR                = ../mappings
 BRIDGEDIR                 = bridges
 {% endif -%}
 {% if project.use_translations -%}
-TRANSLATIONSDIR=          = ../translations
+TRANSLATIONSDIR           = ../translations
 {% endif -%}
 ODK_RESOURCES_DIR        ?= /tools/resources
 
@@ -190,7 +190,7 @@ config_check:
 test: odkversion validate_idranges{# -#}
       {% if project.use_dosdps %} dosdp_validation{% endif %} \
       reason_test sparql_test robot_reports{# -#}
-      {% if project.ensure_valid_rdfxml %} check_rdxfml_products{% endif -%}
+      {% if project.ensure_valid_rdfxml %} check_rdfxml_products{% endif -%}
       {% if project.robot.report.ensure_owl2dl_profile|default(true) %} \
       $(REPORTDIR)/validate_profile_owl2dl_$(ONT).owl.txt{# -#}
       {% endif %}
@@ -1976,7 +1976,7 @@ public_release:
 	@echo "Pushing public release $(GHVERSION) to GitHub..."
 	@echo "Assets to be pushed:"
 	@ls -alt $(RELEASED_ASSETS)
-	@gh release create $(GHVERSION)
+	@gh release create $(GHVERSION) \
 	                   --title "$(VERSION) Release" \
 	                   --generate-notes \
 	                   $(RELEASED_ASSETS)
@@ -2019,7 +2019,7 @@ update_repo:
 	odk update
 
 {% if project.documentation is not none -%}
-.PHONY:
+.PHONY: update_docs
 update_docs:
 	mkdocs gh-deploy --config-file ../../mkdocs.yaml
 
@@ -2092,7 +2092,7 @@ validate-all-tsv: $(ALL_TSV_FILES)
 validate-tsv: $(TSV) | $(TMPDIR)
 	for FILE in $< ; do \
 	        tsvalid $$FILE > $(TMPDIR)/validate-tsv.txt ; \
-	        [ ! -s $(TMPDIR)/validate-tsv.txt ] || (cat $(TMPDIR)/validate-tsv ; false) ; \
+	        [ ! -s $(TMPDIR)/validate-tsv.txt ] || (cat $(TMPDIR)/validate-tsv.txt ; false) ; \
 	done
 
 # "Release diff"
