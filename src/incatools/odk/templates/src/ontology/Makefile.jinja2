@@ -519,7 +519,7 @@ $(PRESEED): $(SRCMERGED) | $(TMPDIR)
 {%     endif -%}
 
 {%     if project.use_custom_import_module -%}
-$(IMPORT_MODULE_SIGNATURE) $(IMPORT_MODULE): $(IMPORT_MODULE_TEMPLATE) | $(TMPDIR)
+$(IMPORT_MODULE_SIGNATURE) $(IMPORT_MODULE) &: $(IMPORT_MODULE_TEMPLATE) | $(TMPDIR)
 	$(ROBOT) template --template $< \
 	                  --ontology-iri "$(ONTBASE)/external_import.owl" \
 	         convert --format {{ project.import_component_format|default("ofn") }} \
