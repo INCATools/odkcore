@@ -352,7 +352,8 @@ check_for_robot_updates:
 $(REPORTDIR)/validate_profile_owl2dl_%.txt: % | $(REPORTDIR)
 	$(ROBOT) merge --input $< \
 	         validate-profile --profile DL \
-	                          --output $@
+	                          --output $@ \
+	|| { cat $@ && exit 1; }
 .PRECIOUS: $(REPORTDIR)/validate_profile_owl2dl_%.txt
 
 validate_profile_%: $(REPORTDIR)/validate_profile_owl2dl_%.txt
