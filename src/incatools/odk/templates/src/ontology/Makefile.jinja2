@@ -187,9 +187,10 @@ config_check:
 {% endif -%}
 
 .PHONY: test
-test: odkversion validate_idranges {# -#}
-      {% if project.use_dosdps %}dosdp_validation {% endif -%}
+test: odkversion validate_idranges{# -#}
+      {% if project.use_dosdps %} dosdp_validation{% endif %} \
       reason_test sparql_test robot_reports{# -#}
+      {% if project.ensure_valid_rdfxml %} check_rdxfml_products{% endif -%}
       {% if project.robot.report.ensure_owl2dl_profile|default(true) %} \
       $(REPORTDIR)/validate_profile_owl2dl_$(ONT).owl.txt{# -#}
       {% endif %}
