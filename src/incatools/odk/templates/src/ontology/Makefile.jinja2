@@ -2043,7 +2043,8 @@ clean:
 .PHONY: normalize_obo_src
 normalize_obo_src: $(SRC) | all_robot_plugins
 	$(ROBOT) repair --input $< --merge-axiom-annotations true \
-	         convert --output $<
+	         convert --output $(TMPDIR)/normalized-$< \
+	&& mv $(TMPDIR)/normalized-$< $<
 
 {% endif -%}
 
@@ -2055,7 +2056,8 @@ normalize_src: $(SRC)
 	                 {% else -%}
 	                 ofn {# -#}
 	                 {% endif -%}
-	                 --output $<
+	                 --output $(TMPDIR)/normalized-$< \
+	&& mv $(TMPDIR)/normalized-$< $<
 
 # Debugging tools
 # ----------------------------------------
