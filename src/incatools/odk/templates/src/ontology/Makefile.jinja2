@@ -2188,11 +2188,15 @@ Editor utilities:
 Additional build commands (advanced users):
 * all:			Run the entire pipeline (like prepare_release), but without copying the
 			release files to the release directory.
+{% if project.subset_group is not none -%}
 * all_subsets:		Build all subsets.
+{% endif -%}
+{% if project.use_mappings -%}
+* all_mappings:		Update all SSSOM mapping sets.
+{% endif -%}
 * custom_reports:	Generate all custom sparql reports you have configured in your project.
 * all_assets:		Build all assets.
 * show_assets:		Print a list of all assets that would be build by the release pipeline.
-* all_mappings:		Update all SSSOM mapping sets.
 
 Additional QC commands (advanced users):
 * robot_reports:	Run all configured ROBOT reports.
