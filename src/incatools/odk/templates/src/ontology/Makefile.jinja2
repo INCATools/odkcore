@@ -1300,7 +1300,7 @@ $(PATTERNDIR)/definitions.owl: $(DOSDP_OWL_FILES_DEFAULT)
 else # PAT=false
 # Even if pattern generation is disabled, we still extract a seed from definitions.owl
 $(TMPDIR)/all_pattern_terms.txt: $(PATTERNDIR)/definitions.owl
-	$(ROBOT) query --intput $< --use-graphs true --format csv \
+	$(ROBOT) query --input $< --use-graphs true --format csv \
 	               --query $(SPARQLDIR)/terms.sparql $@
 
 # Dummy target to allow "make test" to skip DOSDP validation under PAT=false
@@ -1316,7 +1316,7 @@ endif
 # ----------------------------------------
 
 SUBSETS      ={% for s in project.subset_group.products %} {{ s.id }}{% endfor %}
-SUBSET_FILES = $(foreach s, $(SUBSET), $(foreach f, $(sort $(FORMATS) tsv), $(SUBSETDIR)/$(s).$(f)))
+SUBSET_FILES = $(foreach s, $(SUBSETS), $(foreach f, $(sort $(FORMATS) tsv), $(SUBSETDIR)/$(s).$(f)))
 
 .PHONY: all_subsets
 all_subsets: $(SUBSET_FILES)
@@ -1588,7 +1588,7 @@ $(ONT)-base.owl: $(EDIT_PREPROCESSED)
 $(ONT)-baselite.owl: $(EDIT_PREPROCESSED)
                  {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
 	$(ROBOT_RELEASE_IMPORT_MODE_BASE) \
-	         $(ROBOT_SHARED_COMMANDS) \
+	         $(SHARED_ROBOT_COMMANDS) \
 	         annotate --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	                  {% if project.release_date -%}
@@ -1636,7 +1636,7 @@ $(ONT)-non-classified.owl: $(EDIT_PREPROCESSED)
                            {%- if project.use_dosdps or project.components is not none %} $(OTHER_SRC){% endif %}
                            {%- if project.import_group is not none %} $(IMPORT_FILES){% endif %}
 	$(ROBOT_RELEASE_IMPORT_MODE) \
-	         $(ROBOT_SHARED_COMMANDS) \
+	         $(SHARED_ROBOT_COMMANDS) \
 	         annotate --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	                  {% if project.release_date -%}
@@ -1671,7 +1671,7 @@ $(ONT)-simple.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED)
 	         odk:normalize --base-iri {{ project.uribase }} \
 	                       --subset-decls true --synonym-decls true \
 	         repair --merge-axiom-annotations true \
-	         $(ROBOT_SHARED_COMMANDS) \
+	         $(SHARED_ROBOT_COMMANDS) \
 	         annotate --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	                  {% if project.release_date -%}
@@ -1692,7 +1692,7 @@ $(ONT)-simple-non-classified.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED)
 	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
 	         {% endif -%}
 	         filter --select ontology --term-file $(SIMPLESEED) --trim false \
-	         $(ROBOT_SHARED_COMMANDS) \
+	         $(SHARED_ROBOT_COMMANDS) \
 	         annotate --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	                  {% if project.release_date -%}
@@ -1726,7 +1726,7 @@ $(ONT)-basic.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED) $(KEEPRELATIONS)
 	                --select "annotations ontology anonymous self" \
 	                --trim true --signature true \
 	         reduce --reasoner $(REASONER) $(REDUCE_OPTIONS) \
-	         $(ROBOT_SHARED_COMMANDS) \
+	         $(SHARED_ROBOT_COMMANDS) \
 	         annotate --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	                  {% if project.release_date -%}
@@ -1975,7 +1975,7 @@ public_release:
 	@echo "Assets to be pushed:"
 	@ls -alt $(RELEASED_ASSETS)
 	@gh release create $(GHVERSION)
-	                   --title "$(VERSION Release" \
+	                   --title "$(VERSION) Release" \
 	                   --generate-notes \
 	                   $(RELEASED_ASSETS)
 
@@ -2102,7 +2102,7 @@ CURRENT_RELEASE = $(ONTBASE).owl
 $(TMPDIR)/current-release.owl:
 	wget $(CURRENT_RELEASE) --output-document $@
 
-$(REPORTDIR)/release-diff: $(ONT).owl $(TMPDIR)/current-release.owl
+$(REPORTDIR)/release-diff.md: $(ONT).owl $(TMPDIR)/current-release.owl
 	$(ROBOT) diff --left $(TMPDIR)/current-release.owl \
 	              --right $(ONT).owl \
 	              --labels true --format markdown --output $@
