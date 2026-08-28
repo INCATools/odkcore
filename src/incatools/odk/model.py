@@ -923,7 +923,7 @@ class OntologyProject(JsonSchemaMixin):
     """Amount of memory to allocate to OWLTools.
 
     Note that OWLTools is no longer used by any standard ODK workflow,
-    but the option may still impact any remaning use of OWLTools in a
+    but the option may still impact any remaining use of OWLTools in a
     custom workflow.
     """
 
