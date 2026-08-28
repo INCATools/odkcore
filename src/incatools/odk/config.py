@@ -186,7 +186,7 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
     replace keys that have been renamed or moved.
 
     The onus is on whoever introduces a change to the project model to
-    update this function so that it can accommodates the change.
+    update this function so that it can accommodate the change.
 
     :param obj: The dictionary to update.
     """
