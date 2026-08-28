@@ -60,7 +60,7 @@ class File(object):
     def get_final_location(self, target: ODKEnvironment) -> Path:
         """Gets the location of the file once installed.
 
-        This should be overriden in subclasses so that each different
+        This should be overridden in subclasses so that each different
         type of files gets its own location right.
 
         :param target: The environment in which to install the file.

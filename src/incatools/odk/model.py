@@ -379,7 +379,7 @@ class ProductGroup(JsonSchemaMixin):
     def derive_fields(self, project: OntologyProject) -> None:
         """Derive field values wherever needed.
 
-        This method may be overriden by any product group subclass that
+        This method may be overridden by any product group subclass that
         needs to automatically set some values (either in the group
         itself, or in any of its product). Notably, this can be used to
         propagate default values set at the level of the group down to
@@ -520,7 +520,7 @@ class ImportGroup(ProductGroup):
                 # compatibility
                 p.module_type = "slme"
             if p.module_type == "slme":
-                # Use group-level SLME parameters unless overriden
+                # Use group-level SLME parameters unless overridden
                 if p.module_type_slme is None:
                     p.module_type_slme = self.module_type_slme
                 if p.slme_individuals is None:

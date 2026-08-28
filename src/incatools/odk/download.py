@@ -54,9 +54,9 @@ class DownloadError(Exception):
 
 @dataclass
 class RemoteFileInfo:
-    """Informations about a downloaded file.
+    """Information about a downloaded file.
 
-    This class is a simple structure holding the informations we need in
+    This class is a simple structure holding the information we need in
     order to decide whether to update a file that has already been
     downloaded previously.
     """
@@ -132,11 +132,11 @@ def download_file(
 
     :param url: The URL to download the file from.
     :param output: Where the downloaded file should be written.
-    :param info: Informations about the last time the file was
+    :param info: Information about the last time the file was
         downloaded. If the fields of that structure are set to None,
         this means there is no local version of the file, and the
         remote file should always be downloaded. If the download is
-        successful, the structure will be updated with informations from
+        successful, the structure will be updated with information from
         the newly downloaded file.
     :param max_retry: Number of download attempts to perform.
     :param compression: How the remote file is compressed (if at all).
