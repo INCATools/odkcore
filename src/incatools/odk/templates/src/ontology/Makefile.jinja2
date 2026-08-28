@@ -27,7 +27,7 @@ CONFIG_HASH               = {{ project.config_hash }}
 # ----------------------------------------
 # These variables are intended to be used throughout the Makefile (and
 # the custom {{ project.id }}.Makefile, if needed). They _may_ be
-# overriden either on the command line or in the custom Makefile, but in
+# overridden either on the command line or in the custom Makefile, but in
 # most cases this is not recommended.
 
 # Project settings
@@ -1895,7 +1895,7 @@ ASSETS          = $(MAIN_FILES){# -#}
    because those are stored in src/mappings, and the fact that this is
    one directory _above_ the directory where this Makefile is would
    cause problems down the road (notably, it would prevent the use of a
-   single rsync commmand to copy all release assets except mappings to
+   single rsync command to copy all release assets except mappings to
    the release directory). Basically, this is "all release assets that
    are in this src/ontology directory". -#}
 RELEASE_ASSETS  = $(MAIN_FILES){# -#}
@@ -1998,7 +1998,7 @@ public_release:
 # ----------------------------------------
 
 # This is an experimental target people that want to use ODK Extended Prefix Map (EPM)
-# can use to pull the (currently inofficial) OBO EPM into the workspace.
+# can use to pull the (currently unofficial) OBO EPM into the workspace.
 # Users are instructed to refer to the EPM only through the variable $(EXTENDED_PREFIX_MAP) as 
 # its location might change in a feature version of ODK.
 $(EXTENDED_PREFIX_MAP): $(ODK_RESOURCES_DIR)/obo.epm.json

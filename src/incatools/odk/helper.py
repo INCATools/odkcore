@@ -125,10 +125,10 @@ def check_rdfxml(file, lightrdf, rdflib, jena) -> None:
 
 @main.command()
 @click.option(
-    "--tools/--no-tools", default=True, help="Print informations about available tools."
+    "--tools/--no-tools", default=True, help="Print information about available tools."
 )
 def info(tools) -> None:
-    """Print informations about the Ontology Development Kit backend."""
+    """Print information about the Ontology Development Kit backend."""
     print(f"ODK Core {__version__}")
     backend_info = shutil.which("odk-info")
     if backend_info is not None:

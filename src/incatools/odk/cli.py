@@ -210,7 +210,7 @@ def update(templatedir):
     help="""The ODK configuration file.
             This is optional, configuration options can also be passed
             on the command line, but an explicit configuration file is
-            prefered.""",
+            preferred.""",
 )
 @click.option(
     "-c",
