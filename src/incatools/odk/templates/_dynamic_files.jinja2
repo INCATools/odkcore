@@ -429,33 +429,51 @@ entries:
 - prefix: /about/
   replacement: http://www.ontobee.org/ontology/{{ project.id|upper }}?iri=http://purl.obolibrary.org/obo/
 
-{% if project.github_org -%}
-{%   if project.import_group is not none or project.components is not none or project.use_dosdps -%}
+{%- if project.import_group is not none or project.components is not none or project.use_dosdps %}
+
 # For files that are imported from the -edit file, we cannot point to
 # the latest release download folder as we do below in the "generic"
 # fall-through, because those files are _not_ release artefacts and are
 # absent from that folder. Instead, we point to the current {{ project.git_main_branch }} branch.
-{%     if project.import_group is not none -%}
+{%-   if project.import_group is not none %}
+
 - prefix: /imports/
+{%-     if project.github_org %}
   replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/raw/refs/heads/{{ project.git_main_branch }}/src/ontology/imports/
+{%-     else %}
+  replacement: <URL TO MAIN BRANCH'S SRC/ONTOLOGY/IMPORTS DIRECTORY>
+{%-     endif %}
 
-{%     endif -%}
-{%     if project.components is not none -%}
+{%-   endif %}
+{%-   if project.components is not none %}
+
 - prefix: /components/
+{%-     if project.github_org %}
   replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/raw/refs/heads/{{ project.git_main_branch }}/src/ontology/components/
+{%-     else %}
+  replacement: <URL TO MAIN BRANCH'S SRC/ONTOLOGY/COMPONENTS DIRECTORY>
+{%-     endif %}
 
-{%     endif -%}
-{%     if project.use_dosdps -%}
+{%-   endif %}
+{%-   if project.use_dosdps %}
+
 - prefix: /patterns/
+{%-     if project.github_org %}
   replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/raw/refs/heads/{{ project.git_main_branch }}/src/patterns/
+{%-     else %}
+  replacement: <URL TO MAIN BRANCH'S SRC/PATTERNS DIRECTORY>
+{%-     endif %}
 
-{%     endif -%}
-{%   endif -%}
+{%-   endif %}
+{%- endif %}
 
 # Generic fall-through, serve from the latest release artefacts
 - prefix: /
+{%- if project.github_org %}
   replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/
-{% endif -%}
+{%- else %}
+  replacement: <URL TO RELEASES DIRECTORY>
+{%- endif %}
 {% endif %}{# ! project.create_obo_metadata -#}
 {% if project.use_templates -%}
 ^^^ src/templates/README.md
