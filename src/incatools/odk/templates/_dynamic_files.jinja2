@@ -316,7 +316,7 @@ For more background see:
 ---
 layout: ontology_detail
 id: {{ project.id }}
-title: {{ project.title }}
+title: "{{ project.title }}"
 build:
 {%- if project.github_org %}
   checkout: git clone https://github.com/{{ project.github_org }}/{{ project.repo }}.git
@@ -337,7 +337,7 @@ contact:
   github: <CONTACT PERSON GITHUB HANDLE>
 {%- endif %}
 {%- if project.description %}
-description: {{ project.description }}
+description: "{{ project.description }}"
 {%- else %}
 description: <SHORT DESCRIPTION OF THE ONTOLOGY>
 {%- endif %}
@@ -349,21 +349,21 @@ homepage: {{ project.repo_url }}
 {%- endif %}
 products:
   - id: {{ project.id }}.owl
-    name: {{ project.title }} main release in OWL format
+    name: "{{ project.title }} main release in OWL format"
 {%- for format in project.export_formats %}
 {%-   if format != "owl" %}
   - id: {{ project.id }}.{{ format }}
-    name: {{ project.title }} main release in {{ format|upper }} format
+    name: "{{ project.title }} main release in {{ format|upper }} format"
 {%-   endif %}
 {%- endfor %}
 {%- for artefact in project.release_artefacts %}
 {%-   if artefact != project.primary_release %}
   - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.owl
-    name: {{ project.title }} {{ artefact|upper }} release in OWL format
+    name: "{{ project.title }} {{ artefact|upper }} release in OWL format"
 {%-   for format in project.export_formats %}
 {%-     if format != "owl" %}
   - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.{{ format }}
-    name: {{ project.title }} {{ artefact|upper }} release in {{ format|upper}} format
+    name: "{{ project.title }} {{ artefact|upper }} release in {{ format|upper}} format"
 {%-     endif %}
 {%-   endfor %}
 {%-   endif %}
