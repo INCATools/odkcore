@@ -383,7 +383,7 @@ class Generator(object):
         cmd = f"robot odk:import -i {self.project.id}-edit.{self.project.edit_format} --exclusive true"
         if self.project.import_group is not None:
             for name in self.project.import_group.import_names:
-                cmd += f" -- add {base}/imports/{name}_import.owl"
+                cmd += f" --add {base}/imports/{name}_import.owl"
         if self.project.components is not None:
             for component in self.project.components.products:
                 cmd += f" --add {base}/components/{component.filename}"
