@@ -3,13 +3,9 @@
   <group id="odk-managed-catalog" prefer="public">
 {%- if project.manage_import_declarations %}
 {%-   if project.import_group is defined %}
-{%-     if project.import_group.use_base_merging %}
-    <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl" uri="imports/merged_import.owl"/>
-{%-     else %}
-{%-       for imp in project.import_group.products %}
-    <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{imp.id}}_import.owl" uri="imports/{{imp.id}}_import.owl"/>
-{%-       endfor %}
-{%-     endif %}
+{%-     for name in project.import_group.import_names %}
+    <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{name}}_import.owl" uri="imports/{{name}}_import.owl"/>
+{%-     endfor %}
 {%-   endif %}
 {%-   if project.orcidio_support %}
     <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl" uri="imports/orcidio_import.owl"/>

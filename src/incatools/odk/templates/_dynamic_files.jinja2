@@ -24,13 +24,9 @@
 format-version: 1.2
 {%   if project.manage_import_declarations -%}
 {%     if project.import_group is defined -%}
-{%       if project.import_group.use_base_merging -%}
-import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl
-{%       else -%}
-{%         for imp in project.import_group.products -%}
-import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl
-{%         endfor -%}
-{%       endif -%}
+{%       for name in project.import_group.import_names -%}
+import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl
+{%       endfor -%}
 {%     endif -%}
 {%     if project.orcidio_support -%}
 import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl
@@ -85,13 +81,9 @@ Prefix(dcterms:=<http://purl.org/dc/terms/>)
 Ontology(<{{ project.uribase }}/{{ project.id }}.owl>
 {%   if project.manage_import_declarations -%}
 {%     if project.import_group is defined %}
-{%       if project.import_group.use_base_merging -%}
-Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl>)
-{%       else -%}
-{%         for imp in project.import_group.products -%}
-Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl>)
-{%         endfor -%}
-{%       endif -%}
+{%       for name in project.import_group.import_names -%}
+Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>)
+{%       endfor -%}
 {%     endif -%}
 {%     if project.orcidio_support -%}
 Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>)
@@ -206,14 +198,14 @@ Datatype: rdf:PlainLiteral
 imports/%_import.owl: mirror/%.owl
 	echo "ERROR: You have configured your default module type to be custom; this behavior needs to be overwritten in {{ project.id }}.Makefile!" && touch $@
 {%   endif -%}
-{%   if project.import_group.use_base_merging -%}
+{%   for name in project.import_group.import_names -%}
 {#
 
-  Single merged import file
+  Import files, one per import (including the merged import module, if any)
 
 -#}
-^^^ src/ontology/imports/merged_import.owl
-Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl>)
+^^^ src/ontology/imports/{{ name }}_import.owl
+Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>)
 Prefix(obo:=<http://purl.obolibrary.org/obo/>)
 Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
 Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
@@ -222,31 +214,10 @@ Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
 Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
 Prefix(oboInOwl:=<http://www.geneontology.org/formats/oboInOwl#>)
 
-Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl>
+Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>
 # This is a placeholder, it will be regenerated when makefile is first executed.
 )
-{%   else %}{# ! project.import_group.use_base_merging -#}
-{#
-
-  Imports files, one per import
-
--#}
-{%     for imp in project.import_group.products -%}
-^^^ src/ontology/imports/{{ imp.id }}_import.owl
-Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl>)
-Prefix(obo:=<http://purl.obolibrary.org/obo/>)
-Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
-Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
-Prefix(xml:=<http://www.w3.org/XML/1998/namespace>)
-Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
-Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
-Prefix(oboInOwl:=<http://www.geneontology.org/formats/oboInOwl#>)
-
-Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl>
-# This is a placeholder, it will be regenerated when makefile is first executed.
-)
-{%     endfor -%}
-{%   endif -%}
+{%   endfor -%}
 {#
 
   Import Term files

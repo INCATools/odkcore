@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -226,6 +227,16 @@ class ImportProduct(Product):
 
     Supported values are: base, custom, no_mirror. Note that ``base`` is
     actually equivalent to setting ``make_base`` to true.
+    """
+
+    exclude_from_merge: bool = False
+    """Excludes this import module from the merged import module.
+
+    If true and base merging of import modules is enabled, this module
+    will not be included in the merged module, but will instead be kept
+    as a distinct module. This can be useful if a particular import
+    module needs an extraction method that is different from all the
+    other import modules.
     """
 
 
@@ -510,7 +521,32 @@ class ImportGroup(ProductGroup):
     """
 
     def derive_fields(self, project: OntologyProject) -> None:
+        # The following derived fields are somehwat redundant (for
+        # example, `unmerged_products` could easily be derived from
+        # `merged_products`), but it is much more practical to derive
+        # them once and for all here (in Python) than having to do that
+        # using Jinja conditionals in the templates.
+
+        # All products that require a special rule for any reason
         self.special_products = []
+        # All products that are part of the merged import module
+        self.merged_products = []
+        # All product that are NOT part of the merged import module
+        self.unmerged_products = []
+        # Names of all modules that are actually imported
+        self.import_names = []
+
+        if self.use_base_merging:
+            # Safety check: if ALL modules are excluded from merge, we
+            # forcefully disable base merging
+            if not [p for p in self.products if not p.exclude_from_merge]:
+                self.use_base_merging = False
+                logging.warning(
+                    "Dubious configuration: base merging requested but with all import modules excluded"
+                )
+            else:
+                self.import_names.append("merged")
+
         for p in self.products:
             if p.module_type is None:
                 # Use group-level module type
@@ -527,6 +563,12 @@ class ImportGroup(ProductGroup):
                     p.slme_individuals = self.slme_individuals
             if p.base_iris is None:
                 p.base_iris = ["http://purl.obolibrary.org/obo/" + p.id.upper()]
+
+            # A module requires a distinct rule if
+            # (1) it is "large",
+            # (2) it has different extraction parameters than the
+            #     group-level defaults,
+            # (3) it is excluded from base merging.
             if (
                 p.is_large
                 or p.module_type != self.module_type
@@ -537,9 +579,19 @@ class ImportGroup(ProductGroup):
                         or p.slme_individuals != self.slme_individuals
                     )
                 )
+                or (self.use_base_merging and p.exclude_from_merge)
             ):
                 # This module will require a distinct rule
                 self.special_products.append(p)
+
+            if self.use_base_merging:
+                if p.exclude_from_merge:
+                    self.unmerged_products.append(p)
+                    self.import_names.append(p.id)
+                else:
+                    self.merged_products.append(p)
+            else:
+                self.import_names.append(p.id)
 
 
 @dataclass_json
