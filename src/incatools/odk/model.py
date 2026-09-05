@@ -967,7 +967,7 @@ class OntologyProject(JsonSchemaMixin):
     annotation in the seeded ontology.
     """
 
-    description: str = "None"
+    description: Optional[str] = None
     """A short description of the ontology."""
 
     use_dosdps: bool = False
