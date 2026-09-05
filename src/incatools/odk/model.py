@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -536,7 +537,15 @@ class ImportGroup(ProductGroup):
         self.import_names = []
 
         if self.use_base_merging:
-            self.import_names.append("merged")
+            # Safety check: if ALL modules are excluded from merge, we
+            # forcefully disable base merging
+            if not [p for p in self.products if not p.exclude_from_merge]:
+                self.use_base_merging = False
+                logging.warning(
+                    "Dubious configuration: base merging requested but with all import modules excluded"
+                )
+            else:
+                self.import_names.append("merged")
 
         for p in self.products:
             if p.module_type is None:
