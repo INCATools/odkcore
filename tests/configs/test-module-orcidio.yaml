@@ -1,0 +1,11 @@
+id: modorcid
+title: Test ORCIDIO import module type
+github_org: INCATools
+report_fail_on: ERROR
+repo: modorcid
+import_group:
+  products:
+    - id: ro
+    - id: bfo
+    - id: pato
+    - id: orcidio

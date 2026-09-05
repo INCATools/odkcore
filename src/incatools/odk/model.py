@@ -548,6 +548,12 @@ class ImportGroup(ProductGroup):
                 self.import_names.append("merged")
 
         for p in self.products:
+            if p.id == "orcidio" and p.module_type is None:
+                p.module_type = "orcidio"
+            if p.module_type == "orcidio":
+                p.exclude_from_merge = True
+                if p.mirror_from is None:
+                    p.mirror_from = "https://w3id.org/orcidio/orcidio.owl"
             if p.module_type is None:
                 # Use group-level module type
                 p.module_type = self.module_type
@@ -1194,16 +1200,6 @@ class OntologyProject(JsonSchemaMixin):
 
     release_diff: bool = False
     """Generates a diff with the previous release."""
-
-    orcidio_support: bool = False
-    """Enables the automatic production of an ORCIDIO import module.
-
-    If enabled, this option will cause the build pipeline to (1) scan
-    the ontology for references to ORCID identifiers in all IRI-valued
-    annotations, and (2) create a orcidio_import.owl import module
-    containing all ORCIDIO individuals corresponding to the referenced
-    ORCID identifiers.
-    """
 
     robot: RobotOptionsGroup = field(default_factory=lambda: RobotOptionsGroup())
     """ROBOT-related options."""
