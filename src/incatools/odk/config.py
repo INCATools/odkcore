@@ -10,9 +10,15 @@ from hashlib import sha256
 from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 import yaml
-from dacite import from_dict
+from dacite import Config, from_dict
 
-from .model import ImportGroup, ImportProduct, OntologyProject
+from .model import (
+    Compression,
+    ExportFormat,
+    ImportGroup,
+    ImportProduct,
+    OntologyProject,
+)
 
 
 class ConfigurationError(Exception):
@@ -109,7 +115,13 @@ def load_config(
         project = OntologyProject()
     else:
         obj, config_hash = load_config_dict(config_file)
-        project = from_dict(data_class=OntologyProject, data=obj)
+        project = from_dict(
+            data_class=OntologyProject,
+            data=obj,
+            config=Config(
+                type_hooks={ExportFormat: ExportFormat, Compression: Compression}
+            ),
+        )
         project.config_hash = config_hash
     if title:
         project.title = title
@@ -222,6 +234,27 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
             use_base = imp.pop("use_base", False)
             if use_base:
                 imp["use_variant"] = "base"
+
+    # Old-style export_formats
+    orig_export_formats = obj.get("export_formats")
+    export_formats_converted = False
+    if orig_export_formats is not None:
+        if (
+            isinstance(orig_export_formats, list)
+            and len(orig_export_formats) > 0
+            and isinstance(orig_export_formats[0], str)
+        ):
+            # Old-style format, converting to new-style
+            obj["export_formats"] = [{"format": fmt} for fmt in orig_export_formats]
+            export_formats_converted = True
+
+    # gzip_main: Converted to Gzip compression enabled on all output
+    # formats, but only if export_formats was in old-style.
+    gzip_main = obj.pop("gzip_main", False)
+    if gzip_main and export_formats_converted:
+        for spec in obj["export_formats"]:
+            if spec["format"] != "db":
+                spec["compressions"] = ["none", "gz"]
 
 
 def pop_key(obj: Dict[str, Any], path: str) -> Optional[str]:

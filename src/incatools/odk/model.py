@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Dict, List, Optional
 
 from dataclasses_json import dataclass_json
@@ -18,6 +19,59 @@ OntologyHandle = str  ## E.g. uberon, cl; also subset names
 Person = str  ## ORCID or github handle
 Email = str  ## must be of NAME@DOMAIN form
 Url = str
+
+
+class Compression(StrEnum):
+    """Available compression formats for release artefacts."""
+
+    UNCOMPRESSED = "none"
+    GZIP = "gz"
+
+
+class ExportFormat(StrEnum):
+    """Available export formats for release artefacts."""
+
+    OWL = "owl"
+    """RDF/XML OWL Format."""
+
+    OBO = "obo"
+    """OBO Flat File Format."""
+
+    JSON = "json"
+    """OBOGraph-Json Format."""
+
+    TTL = "ttl"
+    """RDF/Turtle Format."""
+
+    SEMSQL = "db"
+    """SemSQL Format."""
+
+
+@dataclass_json
+@dataclass
+class ExportSpecification(JsonSchemaMixin):
+    """Describes how a release artefact is to be exported.
+
+    This is merely a container for (1) an Export Format and (2) a list
+    of Compression values.
+    """
+
+    format: ExportFormat = ExportFormat.OWL
+    """The export format."""
+
+    compressions: List[Compression] = field(default_factory=list)
+    """The compression(s) to use with the export format."""
+
+    def __post_init__(self):
+        if not self.compressions:
+            # Set default compressions according to the format; for now,
+            # all formats except SemSQL default to no-compression (for
+            # backwards compatibility). This will likely change in the
+            # future to enable compression by default for all formats.
+            if self.format == ExportFormat.SEMSQL:
+                self.compressions = [Compression.GZIP]
+            else:
+                self.compressions = [Compression.UNCOMPRESSED]
 
 
 @dataclass_json
@@ -1052,9 +1106,6 @@ class OntologyProject(JsonSchemaMixin):
     create_obo_metadata: bool = True
     """Generates metadata files for the OBO Foundry."""
 
-    gzip_main: bool = False
-    """Produces gzipped versions of the main artefacts in all formats."""
-
     release_artefacts: List[str] = field(default_factory=lambda: ["full", "base"])
     """The types of release artefacts to produce.
 
@@ -1077,14 +1128,13 @@ class OntologyProject(JsonSchemaMixin):
     release_materialize_object_properties: Optional[List[str]] = None
     """The object properties to materialise at release time."""
 
-    export_formats: List[str] = field(default_factory=lambda: ["owl", "obo"])
-    """The formats the release artefacts should be exported to.
-
-    Allowed values: owl, obo, json, ttl, db.
-
-    Note that here, ``owl`` means RDF/XML, ``json`` means OBOGraph-Json,
-    and ``db`` means SemSQL.
-    """
+    export_formats: List[ExportSpecification] = field(
+        default_factory=lambda: [
+            ExportSpecification(format=ExportFormat.OWL),
+            ExportSpecification(format=ExportFormat.OBO),
+        ]
+    )
+    """The formats the release artefacts should be exported to."""
 
     namespaces: Optional[List[str]] = None
     """The namespaces that are considered at home in this ontology.
@@ -1211,5 +1261,8 @@ class OntologyProject(JsonSchemaMixin):
             self.public_release = "github"
 
         # Exporting to OWL is mandatory, even if not explicitly listed
-        if "owl" not in self.export_formats:
-            self.export_formats.append("owl")
+        if not [f for f in self.export_formats if f.format == ExportFormat.OWL]:
+            self.export_formats.append(ExportSpecification(format=ExportFormat.OWL))
+
+        # Ready-to-use list of export format names, for convenience
+        self.export_format_names = [f.format for f in self.export_formats]

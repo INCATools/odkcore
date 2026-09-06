@@ -1,0 +1,17 @@
+id: triffo
+title: Test new-style export formats
+github_org: cmungall
+report_fail_on: ERROR
+repo: triffo
+import_group:
+  products:
+    - id: ro
+    - id: bfo
+    - id: pato
+export_formats:
+  - format: owl
+    compressions: [none, gz]
+  - format: obo
+    compressions: [gz]
+  - format: json
+    compressions: [gz]

@@ -350,20 +350,20 @@ homepage: {{ project.repo_url }}
 products:
   - id: {{ project.id }}.owl
     name: "{{ project.title }} main release in OWL format"
-{%- for format in project.export_formats %}
-{%-   if format != "owl" %}
-  - id: {{ project.id }}.{{ format }}
-    name: "{{ project.title }} main release in {{ format|upper }} format"
+{%- for spec in project.export_formats %}
+{%-   if spec.format != "owl" %}
+  - id: {{ project.id }}.{{ spec.format }}
+    name: "{{ project.title }} main release in {{ spec.format|upper }} format"
 {%-   endif %}
 {%- endfor %}
 {%- for artefact in project.release_artefacts %}
 {%-   if artefact != project.primary_release %}
   - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.owl
     name: "{{ project.title }} {{ artefact|upper }} release in OWL format"
-{%-   for format in project.export_formats %}
-{%-     if format != "owl" %}
-  - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.{{ format }}
-    name: "{{ project.title }} {{ artefact|upper }} release in {{ format|upper}} format"
+{%-   for spec in project.export_formats %}
+{%-     if spec.format != "owl" %}
+  - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.{{ spec.format }}
+    name: "{{ project.title }} {{ artefact|upper }} release in {{ spec.format|upper}} format"
 {%-     endif %}
 {%-   endfor %}
 {%-   endif %}
@@ -397,9 +397,9 @@ base_url: /obo/{{ project.id }}
 products:
 {%- if project.github_org %}
 - {{ project.id }}.owl: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/{{ project.id }}.owl
-{%-   for format in project.export_formats %}
-{%-     if format != "owl" %}
-- {{ project.id }}.{{ format }}: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/{{ project.id }}.{{ format }}
+{%-   for spec in project.export_formats %}
+{%-     if spec.format != "owl" %}
+- {{ project.id }}.{{ spec.format }}: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/{{ project.id }}.{{ spec.format }}
 {%-     endif %}
 {%-   endfor %}
 {%- else %}
