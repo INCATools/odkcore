@@ -10,9 +10,15 @@ from hashlib import sha256
 from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 import yaml
-from dacite import from_dict
+from dacite import Config, from_dict
 
-from .model import ImportGroup, ImportProduct, OntologyProject
+from .model import (
+    Compression,
+    ExportFormat,
+    ImportGroup,
+    ImportProduct,
+    OntologyProject,
+)
 
 
 class ConfigurationError(Exception):
@@ -109,7 +115,13 @@ def load_config(
         project = OntologyProject()
     else:
         obj, config_hash = load_config_dict(config_file)
-        project = from_dict(data_class=OntologyProject, data=obj)
+        project = from_dict(
+            data_class=OntologyProject,
+            data=obj,
+            config=Config(
+                type_hooks={ExportFormat: ExportFormat, Compression: Compression}
+            ),
+        )
         project.config_hash = config_hash
     if title:
         project.title = title
