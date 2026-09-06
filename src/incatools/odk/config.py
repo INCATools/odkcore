@@ -203,6 +203,7 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
         ("robot_plugins.plugins", "robot.plugins"),
         ("robot_plugins", None),
         ("robot_report", "robot.report"),
+        ("catalog_file", None),
     ]
     for old, new in changes:
         v = pop_key(obj, old)

@@ -87,7 +87,7 @@ OTHER_SRC                 ={% if project.use_dosdps %} {# -#}
                                 $(COMPONENTSDIR)/{{ component.filename -}}
                            {%   endfor -%}
                            {% endif %}
-CATALOG                   = {{ project.catalog_file }}
+CATALOG                   = catalog-v001.xml
 {% if project.use_context -%}
 CONTEXT_FILE              = config/context.json
 {% endif -%}
