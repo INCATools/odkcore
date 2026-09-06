@@ -40,7 +40,7 @@ ONTBASE                   = {{ project.uribase }}/{% if project.uribase_suffix i
                                                        {{ project.id -}}
                                                   {% endif %}
 EDIT_FORMAT               = {{ project.edit_format|default('owl') }}
-FORMATS                   ={% for format in project.export_formats|sort %} {{ format }}{% endfor %}
+FORMATS                   ={% for format in project.export_format_names|sort %} {{ format }}{% endfor %}
 RELEASE_ARTEFACTS         ={% for release in project.release_artefacts %} {# -#}
                            {%   if release.startswith("custom") -%}
                                   {{ release | replace("custom-", "") -}}
@@ -1334,18 +1334,18 @@ $(SUBSETDIR)/%.owl: $(ONT).owl | $(SUBSETDIR) all_robot_plugins
 	         $(ANNOTATE_ONTOLOGY_VERSION) --output $@
 .PRECIOUS: $(SUBSETDIR)/%.owl
 
-{%   if 'obo' in project.export_formats -%}
+{%   if 'obo' in project.export_format_names -%}
 $(SUBSETDIR)/%.obo: $(SUBSETDIR)/%.owl
 	$(ROBOT) convert --input $< --check false --format obo \
 	                 $(OBO_FORMAT_OPTIONS) --output $@
 
 {%   endif -%}
-{%   if 'ttl' in project.export_formats -%}
+{%   if 'ttl' in project.export_format_names -%}
 $(SUBSETDIR)/%.ttl: $(SUBSETDIR)/%.owl
 	$(ROBOT) convert --input $< --check false --format ttl --output $@
 
 {%   endif -%}
-{%   if 'json' in project.export_formats -%}
+{%   if 'json' in project.export_format_names -%}
 $(SUBSETDIR)/%.json: $(SUBSETDIR)/%.owl
 	$(ROBOT) convert --input $< --check false --format json --output $@
 
@@ -1489,10 +1489,11 @@ ROBOT_RELEASE_IMPORT_MODE_BASE = $(ROBOT) remove --input $< --select imports --t
                                  {% endif %}
 
 MAIN_PRODUCTS = $(sort $(foreach a, $(RELEASE_ARTEFACTS), $(a)) $(ONT))
-MAIN_FILES    = $(foreach p, $(MAIN_PRODUCTS), $(foreach f, $(FORMATS), $(p).$(f))){# -#}
-                {% if project.gzip_main %} \
-                $(foreach f, $(FORMATS), $(ONT).$(f).gz){# -#}
-                {% endif %}
+MAIN_FILES    = $(foreach p, $(MAIN_PRODUCTS), {% for spec in project.export_formats -%}
+                                               {%   for comp in spec.compressions -%}
+                                               $(p).{{ spec.format }}{% if comp != "none" %}.{{ comp }}{% endif %} {# -#}
+                                               {%   endfor -%}
+                                               {% endfor -%})
 
 .PHONY: all_main
 all_main: $(MAIN_FILES){# -#}
@@ -1761,7 +1762,7 @@ $(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
 {%   endif -%}
 {% endfor -%}
 
-{% if project.export_formats|length > 1 or project.export_formats[0] != "owl" -%}
+{% if project.export_format_names|length > 1 or project.export_format_names[0] != "owl" -%}
 # Release artefacts: export formats
 # ----------------------------------------
 
@@ -1770,13 +1771,13 @@ $(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
    variants ($(ONT)-base, $(ONT)-full, etc.), so that we do not have
    to duplicate all the code below (once for the primary artefact and
    one when we iterate over the variants. -#}
-{%   if "obo" in project.export_formats -%}
+{%   if "obo" in project.export_format_names -%}
 $(ONT).obo: $(ONT).owl
 	$(ROBOT) convert --input $< --check false \
 	                 --format obo $(OBO_FORMAT_OPTIONS) --output $@
 
 {%   endif -%}
-{%   if "ttl" in project.export_formats -%}
+{%   if "ttl" in project.export_format_names -%}
 {# FIXME: Why are re-annotating? The release.owl product should have
    been annotated already.
    See https://github.com/INCATools/ontology-development-kit/issues/1366. -#}
@@ -1786,7 +1787,7 @@ $(ONT).ttl: $(ONT).owl
 	         convert --check false --format ttl --output $@
 
 {%   endif -%}
-{%   if "json" in project.export_formats -%}
+{%   if "json" in project.export_format_names -%}
 $(ONT).json: $(ONT).owl
 	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
@@ -1799,20 +1800,20 @@ $(ONT).json: $(ONT).owl
 {%     else -%}
 {%       set release = "$(ONT)-" ~ r -%}
 {%     endif -%}
-{%     if "obo" in project.export_formats -%}
+{%     if "obo" in project.export_format_names -%}
 {{ release }}.obo: {{ release }}.owl
 	$(ROBOT) convert --input $< --check false \
 	                 --format obo $(OBO_FORMAT_OPTIONS) --output $@
 
 {%     endif -%}
-{%     if "ttl" in project.export_formats -%}
+{%     if "ttl" in project.export_format_names -%}
 {{ release }}.ttl: {{ release }}.owl
 	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	         convert --check false --format ttl --output $@
 
 {%     endif -%}
-{%     if "json" in project.export_formats -%}
+{%     if "json" in project.export_format_names -%}
 {{ release }}.json: {{ release }}.owl
 	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
@@ -1821,7 +1822,7 @@ $(ONT).json: $(ONT).owl
 {%     endif -%}
 {%   endfor -%}
 
-{%   if 'db' in project.export_formats -%}
+{%   if 'db' in project.export_format_names -%}
 
 {%     if project.use_context -%}
 CONTEXT_FILE_CSV = $(TMPDIR)/context.csv
@@ -1838,25 +1839,17 @@ $(CONTEXT_FILE_CSV): $(CONTEXT_FILE) | $(TMPDIR)
 
 {%   endif -%}
 
-{%   for format in project.export_formats -%}
-{%     if project.gzip_main -%}
-$(ONT).{{ format }}.gz: $(ONT).{{ format }}
+{%   for spec in project.export_formats -%}
+{%     for comp in spec.compressions -%}
+{%       if comp == "gz" -%}
+%.{{ spec.format }}.gz: %.{{ spec.format }}
 	gzip -c $< > $@
 
-{%     endif -%}
+{%       endif -%}
+{%     endfor -%}
 {%   endfor -%}
-{%   if 'owl' not in project.export_formats -%}
-{%     if project.gzip_main -%}
-$(ONT).owl.gz: $(ONT).owl
-	gzip -c $< > $@
 
-{%     endif -%}
-$(ONT).owl: $(ONT)-{{ project.primary_release }}.owl
-	cp $< $@
-
-{%   endif -%}
-
-{% endif %}{# !if project.export_formats|length > 1 or project.export_formats[0] != "owl" -#}
+{% endif %}{# !if project.export_format_names|length > 1 or project.export_format_names[0] != "owl" -#}
 
 {# #}
 # ----------------------------------------
