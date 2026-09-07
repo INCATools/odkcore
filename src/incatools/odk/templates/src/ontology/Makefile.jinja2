@@ -73,6 +73,7 @@ BRIDGEDIR                 = bridges
 {% if project.use_translations -%}
 TRANSLATIONSDIR           = ../translations
 {% endif -%}
+PATCHESDIR                = $(TMPDIR)/patches
 ODK_RESOURCES_DIR        ?= /tools/resources
 
 # Files
@@ -2003,6 +2004,21 @@ public_release:
 # its location might change in a feature version of ODK.
 $(EXTENDED_PREFIX_MAP): $(ODK_RESOURCES_DIR)/obo.epm.json
 	cp $< $@
+
+# Applying patches
+# ----------------------------------------
+
+.PHONY: apply_patches
+apply_patches: | all_robot_plugins
+	@if [ -d $(PATCHESDIR) ]; then \
+	        odk-helper apply-patches --catalog $(CATALOG) \
+	                                 {% if project.use_context -%}
+	                                 --context $(CONTEXT_FILE) \
+	                                 {% endif -%}
+	                                 --format {% if project.edit_format == "owl" %}ofn{% else %}{{ project.edit_format }}{% endif %} \
+	                                 $(SRC) $(PATCHESDIR) ; \
+	fi
+
 
 # Repository maintenance
 # ----------------------------------------
