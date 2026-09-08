@@ -26,6 +26,7 @@ DOSDP_SOURCE = "https://github.com/INCATools/dosdp-tools/releases/download/v0.20
 RELGR_SOURCE = "https://github.com/INCATools/relation-graph/releases/download/v2.3.4/relation-graph-cli-2.3.4.tgz"
 ODK_PLUGIN_SOURCE = "https://github.com/INCATools/odk-robot-plugin/releases/download/odk-robot-plugin-0.3.3/odk.jar"
 SSSOM_PLUGIN_SOURCE = "https://github.com/gouttegd/sssom-java/releases/download/sssom-java-1.11.3/sssom-robot-plugin-1.11.3.jar"
+KGCL_PLUGIN_SOURCE = "https://github.com/gouttegd/kgcl-java/releases/download/kgcl-java-0.6.2/kgcl-robot-plugin-0.6.2.jar"
 OBO_EPM_SOURCE = "https://raw.githubusercontent.com/biopragmatics/bioregistry/main/exports/contexts/obo.epm.json"
 
 ACTIVATION_TEMPLATE = Path(__file__).parent.resolve() / "activate.jinja2"
@@ -373,6 +374,7 @@ class ODKEnvironment(object):
             RdftabTool(),
             RobotPlugin("odk", ODK_PLUGIN_SOURCE),
             RobotPlugin("sssom", SSSOM_PLUGIN_SOURCE),
+            RobotPlugin("kgcl", KGCL_PLUGIN_SOURCE),
             ResourceFile("obo.epm.json", OBO_EPM_SOURCE),
             ActivationFile(),
         ]

@@ -307,7 +307,17 @@ def apply_patches(ontology, patches_directory, catalog, context, format):
             )
         elif path.suffix == ".kgcl":
             logging.info(f"Applying KGCL patch {path}")
-            cmd.extend(["kgcl:apply", "--input", ontology, "--kgcl-file", path])
+            cmd.extend(
+                [
+                    "kgcl:apply",
+                    "--input",
+                    ontology,
+                    "--kgcl-file",
+                    path,
+                    "--fail-on-reject",
+                    "--no-partial-apply",
+                ]
+            )
 
         cmd.extend(["convert", "--format", format, "--output", ontology])
         if format == "obo":
