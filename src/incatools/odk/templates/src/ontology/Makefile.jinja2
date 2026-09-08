@@ -73,6 +73,7 @@ BRIDGEDIR                 = bridges
 {% if project.use_translations -%}
 TRANSLATIONSDIR           = ../translations
 {% endif -%}
+PATCHESDIR                = $(TMPDIR)/patches
 ODK_RESOURCES_DIR        ?= /tools/resources
 
 # Files
@@ -2004,6 +2005,21 @@ public_release:
 $(EXTENDED_PREFIX_MAP): $(ODK_RESOURCES_DIR)/obo.epm.json
 	cp $< $@
 
+# Applying patches
+# ----------------------------------------
+
+.PHONY: apply_patches
+apply_patches: | all_robot_plugins
+	@if [ -d $(PATCHESDIR) ]; then \
+	        odk-helper apply-patches --catalog $(CATALOG) \
+	                                 {% if project.use_context -%}
+	                                 --context $(CONTEXT_FILE) \
+	                                 {% endif -%}
+	                                 --format {% if project.edit_format == "owl" %}ofn{% else %}{{ project.edit_format }}{% endif %} \
+	                                 $(SRC) $(PATCHESDIR) ; \
+	fi
+
+
 # Repository maintenance
 # ----------------------------------------
 
@@ -2185,6 +2201,7 @@ Editor utilities:
 * validate-all-tsv:	Check all your tsv files for possible problems in syntax.
 {% endif -%}
 * release_diff:		Create a diff between the current release and the new release
+* apply_patches:	Apply any patch found in $(PATCHESDIR).
 
 Additional build commands (advanced users):
 * all:			Run the entire pipeline (like prepare_release), but without copying the
