@@ -328,7 +328,7 @@ def apply_patches(ontology, patches_directory, catalog, context, format):
         if p.returncode != 0:
             logging.error(f"Failed to apply patch {path}")
             if err:
-                with open(path.as_posix() + ".ERRORS", "w") as f:
+                with open(path.as_posix() + ".ERRORS", "wb") as f:
                     f.write(err)
         else:
             applied.append(path)
