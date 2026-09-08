@@ -260,7 +260,7 @@ def apply_patches(ontology, patches_directory, catalog, context, format):
     applied = []
     total = 0
 
-    for path in patches_directory.iterdir():
+    for path in sorted(patches_directory.iterdir()):
         if path.is_dir():
             continue
         if path.suffix not in [".obo", ".tsv", ".kgcl"]:
