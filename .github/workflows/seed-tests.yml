@@ -1,5 +1,9 @@
 name: Seed and build test configurations of the ODK
 
+# by default, give the GITHUB_TOKEN no permissions
+# See https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/controlling-permissions-for-github_token
+permissions: {}
+
 on:
   push:
     branches: [ main ]
@@ -32,6 +36,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
