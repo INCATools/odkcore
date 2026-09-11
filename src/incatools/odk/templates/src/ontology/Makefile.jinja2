@@ -217,6 +217,9 @@ $(TMPDIR) $(REPORTDIR) $(MIRRORDIR) $(IMPORTDIR) $(COMPONENTSDIR) $(SUBSETDIR){#
 
 
 # ----------------------------------------
+# Additional software tools
+# ----------------------------------------
+
 # ODK-managed ROBOT plugins
 # ----------------------------------------
 
@@ -263,7 +266,18 @@ $(ROBOT_PLUGINS_DIRECTORY)/{{ plugin.name }}.jar:
 
 {%   endfor -%}
 {% endif -%}
-{# #}
+# Extra Python packages
+# ----------------------------------------
+
+# Install any additional Python packages listed in
+# config/python-packages.txt. Any custom workflow in {{ project.id }}.Makefile
+# requiring those packages should depend on this target to ensure the
+# packages are installed.
+.PHONY: all_python_packages
+all_python_packages: $(wildcard config/python-packages.txt)
+	@if [ -n "$<" ]; then pip install --requirement $< ; fi
+
+
 # ----------------------------------------
 # Internal intermediate products
 # ----------------------------------------
@@ -1992,7 +2006,6 @@ public_release:
 
 {% endif -%}
 {# #}
-
 # ----------------------------------------
 # Utilities
 # ----------------------------------------
