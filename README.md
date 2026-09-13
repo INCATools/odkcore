@@ -76,9 +76,10 @@ plugins used by ODK workflows are:
 
 * the [ODK plugin](https://incatools.github.io/odk-robot-plugin/)
   (always required),
-* and the [SSSOM
-  plugin](https://incenp.org/dvlpt/sssom-java/sssom-robot/index.html)
-  (required for projects using SSSOM mappings).
+* the [SSSOM plugin](https://incenp.org/dvlpt/sssom-java/sssom-robot/index.html)
+  (required for projects using SSSOM mappings),
+* and the [KGCL plugin](https://incenp.org/dvlpt/kgcl-java/kgcl-robot/index.html)
+  (required for the `apply_patches` workflow).
 
 When using the ODK through one of the Docker images, all those
 requirements are automatically met. When _not_ using the Docker images,
