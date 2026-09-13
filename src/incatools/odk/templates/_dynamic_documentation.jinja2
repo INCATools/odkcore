@@ -72,9 +72,11 @@ Workflow requirements:
 - editing tool of choice, e.g. Protégé, your favourite text editor, etc
 
 #### 1. _Create issue_
+
 Ensure that there is a ticket on your issue tracker that describes the change you are about to make. While this seems optional, this is a very important part of the social contract of building an ontology - no change to the ontology should be performed without a good ticket, describing the motivation and nature of the intended change.
 
 #### 2. _Update main branch_ 
+
 In your local environment (e.g. your laptop), make sure you are on the `main` (prev. `master`) branch and ensure that you have all the upstream changes, for example:
 
 ```console
@@ -84,6 +86,7 @@ $ git pull
 
 #### 3. _Create feature branch_
 Create a new branch. Per convention, we try to use meaningful branch names such as:
+
 - issue23removeprocess (where issue 23 is the related issue on GitHub)
 - issue26addcontributor
 - release20210101 (for releases)
@@ -95,6 +98,7 @@ $ git checkout -b issue23removeprocess
 ```
 
 #### 4. _Perform edit_
+
 Using your editor of choice, perform the intended edit. For example:
 
 _Protégé_
@@ -120,6 +124,7 @@ Consider the following when making the edit.
 3. Changes should usually be small. Adding or changing 1 term is great. Adding or changing 10 related terms is ok. Adding or changing 100 or more terms at once should be considered very carefully.
 
 #### 4. _Check the Git diff_
+
 This step is very important. Rather than simply trusting your change had the intended effect, we should always use a git diff as a first pass for sanity checking.
 
 In our experience, having a visual git client like [GitHub Desktop](https://desktop.github.com/) or [sourcetree](https://www.sourcetreeapp.com/) is really helpful for this part. In case you prefer the command line:
@@ -166,6 +171,7 @@ There is a lot of great advise on how to write pull requests, but at the very le
 - If the diff is large, provide instructions on how to review the pull request best (sometimes, there are many changed files, but only one important change).
 
 #### 7/5b. Continuous Integration Testing
+
 If you didn't run and local quality control checks (see [5a](#5a-local-testing)), you should have Continuous Integration (CI) set up, for example:
 - Travis
 - GitHub Actions
@@ -228,6 +234,7 @@ This will create all the specified release targets (OBO, OWL, JSON, and the vari
 4. Like with every pull request, we recommend to always employ a second set of eyes when reviewing a PR!
 
 ## Merge the main branch
+
 Once your [CI checks](ContinuousIntegration.md) have passed, and your reviews are completed, you can now merge the branch into your main branch (don't forget to delete the branch afterwards - a big button will appear after the merge is finished).
 
 ## Create a GitHub release
@@ -413,7 +420,7 @@ you and your team.
 1. Open `src/ontology/{{ project.id }}-odk.yaml`
 1. If you dont have it yet, add a new top level section `components`
 1. Under the `components` section, add a new section called `products`. 
-This is where all your components are specified
+   This is where all your components are specified
 1. Under the `products` section, add a new component, e.g. `- filename: mycomp.owl`
 
 _Example_
@@ -430,7 +437,7 @@ be created which you can edit as you see fit. Typical ways to edit:
 1. Using a ROBOT template to generate the component (see below)
 1. Manually curating the component separately with Protégé or any other editor
 1. Providing a `components/mycomp.owl:` make target in `src/ontology/{{ project.id }}.Makefile`
-and provide a custom command to generate the component
+   and provide a custom command to generate the component
     - `WARNING`: Note that the custom rule to generate the component _MUST NOT_ depend on any other ODK-generated file such as seed files and the like (see [issue](https://github.com/INCATools/ontology-development-kit/issues/637)).
 1. Providing an additional attribute for the component in `src/ontology/{{ project.id }}-odk.yaml`, `source`,
 to specify that this component should simply be downloaded from somewhere on the web.
@@ -488,6 +495,7 @@ These are the current imports in {{ project.id.upper() }}
 
 {%   endif -%}
 ## Components
+
 Components, in contrast to imports, are considered full members of the ontology. This means that any axiom in a component is also included in the ontology base - which means it is considered _native_ to the ontology. While this sounds complicated, consider this: conceptually, no component should be part of more than one ontology. If that seems to be the case, we are most likely talking about an import. Components are often not needed for ontologies, but there are some use cases:
 
 1. There is an automated process that generates and re-generates a part of the ontology
@@ -510,9 +518,9 @@ One of the most frequent problems with running the ODK for the first time is fai
 but more often than not it will appear as something like an `Error 137`. There are two places you need to consider to set your memory:
 
 1. Your src/ontology/run.sh (or run.bat) file. You can set the memory in there by adding 
-`robot_java_args: '-Xmx8G'` to your src/ontology/{{ project.id }}-odk.yaml file, see for example [here](https://github.com/INCATools/ontology-development-kit/blob/0e0aef2b26b8db05f5e78b7c38f807d04312d06a/configs/uberon-odk.yaml#L36).
+   `robot_java_args: '-Xmx8G'` to your src/ontology/{{ project.id }}-odk.yaml file, see for example [here](https://github.com/INCATools/ontology-development-kit/blob/0e0aef2b26b8db05f5e78b7c38f807d04312d06a/configs/uberon-odk.yaml#L36).
 2. Set your docker memory. By default, it should be about 10-20% more than your `robot_java_args` variable. You can manage your memory settings
-by right-clicking on the docker whale in your system bar-->Preferences-->Resources-->Advanced, see picture below.
+   by right-clicking on the docker whale in your system bar-->Preferences-->Resources-->Advanced, see picture below.
 
 ![dockermemory](https://github.com/INCATools/ontology-development-kit/raw/master/docs/img/docker_memory.png)
 
@@ -558,7 +566,7 @@ Now you can use this term for example to construct logical definitions. The next
 
 Every import has, by default a term file associated with it, which can be found in the imports directory. For example, if you have a GO import in `src/ontology/go_import.owl`, you will also have an associated term file `src/ontology/go_terms.txt`. You can add terms in there simply as a list:
 
-```
+```text
 GO:0008150
 GO:0008151
 ```
@@ -667,9 +675,9 @@ merging all mirrors into one huge file and then extracting one mega module from 
 Example: Let's say we are importing terms from Uberon, GO and RO in our ontologies.
 When we use the base pipelines, we
 
-1) First obtain the base (usually by simply downloading it, but there is also an option now to create it with ROBOT)
-2) We merge all base files into one big pile
-3) Then we extract a single module `imports/merged_import.owl`
+1. First obtain the base (usually by simply downloading it, but there is also an option now to create it with ROBOT)
+2. We merge all base files into one big pile
+3. Then we extract a single module `imports/merged_import.owl`
 
 The first implementation of this pipeline is PATO, see https://github.com/pato-ontology/pato/blob/master/src/ontology/pato-odk.yaml.
 
@@ -680,8 +688,9 @@ If your ontology uses Base Module approach, please use the following steps:
 First, add the term to be imported to the term file associated with it (see above "Using term files" section if this is not clear to you)
 
 Next, you navigate in your terminal to the ontology directory (underneath src in your hpo root directory). 
-```
-cd src/ontology
+
+```console
+$ cd src/ontology
 ```
 
 Then refresh imports by running
@@ -704,16 +713,14 @@ For details on what components are, please see component section of [repository 
 
 To add custom components to an ODK repo, please follow the following steps:
 
-1) Locate your odk yaml file and open it with your favourite text editor (src/ontology/{{ project.id }}-odk.yaml)
-2) Search if there is already a component section to the yaml file, if not add it accordingly, adding the name of your component:
-
-```yaml
-components:
-  products:
-    - filename: your-component-name.owl
-```
-
-3) Refresh your repo by running `sh run update_repo`. This will automatically (1) create a new file in `src/ontology/components/`, (2) update the `-edit` file so that it imports `{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/components/your-component-name.owl` (the IRI of your new component), and (3) update the XML catalog file (`src/ontology/catalog-v001.xml`) to redirect that IRI to the file in the `src/ontology/components` directory, so that the new component can be found by tools such as Protégé or ROBOT, when they load the `-edit` file.
+1. Locate your odk yaml file and open it with your favourite text editor (src/ontology/{{ project.id }}-odk.yaml)
+2. Search if there is already a component section to the yaml file, if not add it accordingly, adding the name of your component:
+   ```yaml
+   components:
+     products:
+       - filename: your-component-name.owl
+   ```
+3. Refresh your repo by running `sh run update_repo`. This will automatically (1) create a new file in `src/ontology/components/`, (2) update the `-edit` file so that it imports `{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/components/your-component-name.owl` (the IRI of your new component), and (3) update the XML catalog file (`src/ontology/catalog-v001.xml`) to redirect that IRI to the file in the `src/ontology/components` directory, so that the new component can be found by tools such as Protégé or ROBOT, when they load the `-edit` file.
 
 If your component is to be generated by some automated process, add a goal in your custom Makefile (`src/ontology/{{ project.id }}.Makefile`) and make it perform any task needed to generate the component:
 
@@ -783,12 +790,12 @@ All the documentation is contained in the `docs` directory, and is managed in _M
 The documentation is _not_ automatically updated from the Markdown, and needs to be deployed deliberately. To do this, perform the following steps:
 
 1. In your terminal, navigate to the edit directory of your ontology, e.g.:
-   ```
-   cd {{ project.id }}/src/ontology
+   ```console
+   $ cd {{ project.id }}/src/ontology
    ```
 2. Now you are ready to build the docs as follows:
-   ```
-   sh run.sh make update_docs
+   ```console
+   $ sh run.sh make update_docs
    ```
    [Mkdocs](https://www.mkdocs.org/) now sets off to build the site from the markdown pages. You will be asked to
     - Enter your username
@@ -829,8 +836,8 @@ We can define custom checks using [SPARQL](https://www.w3.org/TR/rdf-sparql-quer
         ```
 3. Update the repository so your new SPARQL check will be included in the QC.
 
-```shell
-sh run.sh update_repo
+```console
+$ sh run.sh update_repo
 ```
 {%   if project.use_dosdps -%}
 ^^^ docs/templates/dosdp.md
