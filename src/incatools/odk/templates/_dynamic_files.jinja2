@@ -28,9 +28,6 @@ format-version: 1.2
 import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl
 {%       endfor -%}
 {%     endif -%}
-{%     if project.orcidio_support -%}
-import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl
-{%     endif -%}
 {%     if project.components is defined -%}
 {%       for component in project.components.products -%}
 import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/components/{{ component.filename }}
@@ -84,9 +81,6 @@ Ontology(<{{ project.uribase }}/{{ project.id }}.owl>
 {%       for name in project.import_group.import_names -%}
 Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>)
 {%       endfor -%}
-{%     endif -%}
-{%     if project.orcidio_support -%}
-Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>)
 {%     endif -%}
 {%     if project.components is defined -%}
 {%       for component in project.components.products -%}
@@ -230,24 +224,11 @@ Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ pr
 
 -#}
 {%   for imp in project.import_group.products -%}
+{%     if imp.module_type != "orcidio" -%}
 ^^^ src/ontology/imports/{{ imp.id }}_terms.txt
+{%     endif -%}
 {%   endfor -%}
 {% endif %}{# ! project.import_group is defined -#}
-{% if project.orcidio_support -%}
-^^^ src/ontology/imports/orcidio_import.owl
-Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>)
-Prefix(obo:=<http://purl.obolibrary.org/obo/>)
-Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
-Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
-Prefix(xml:=<http://www.w3.org/XML/1998/namespace>)
-Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
-Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
-Prefix(oboInOwl:=<http://www.geneontology.org/formats/oboInOwl#>)
-
-Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>
-# This is a placeholder, it will be regenerated when makefile is first executed.
-)
-{% endif -%}
 {#
 
   Metadata files.

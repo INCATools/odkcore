@@ -7,9 +7,6 @@
     <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{name}}_import.owl" uri="imports/{{name}}_import.owl"/>
 {%-     endfor %}
 {%-   endif %}
-{%-   if project.orcidio_support %}
-    <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl" uri="imports/orcidio_import.owl"/>
-{%-   endif %}
 {%-   if project.components is defined %}
 {%-     for component in project.components.products %}
     <uri name="{{project.uribase}}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/components/{{component.filename}}" uri="components/{{component.filename}}"/>
