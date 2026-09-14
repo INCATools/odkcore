@@ -471,7 +471,11 @@ endif
 {%   endfor %}{# for ont in project.import_group.products -#}
 
 {%   if project.import_group.use_base_merging -%}
-ALL_MIRRORS = $(foreach imp, $(IMPORTS), $(MIRRORDIR)/$(imp).owl)
+ALL_MIRRORS = {% for ont in project.import_group.merged_products -%}
+              $(MIRRORDIR)/{{ ont.id }}.owl{# -#}
+              {% if not loop.last %} \
+              {% endif -%}
+              {% endfor %}
 MERGE_MIRRORS = true
 
 ifeq ($(MERGE_MIRRORS),true)
@@ -541,11 +545,11 @@ $(IMPORTSEED):
 # Import modules
 # ----------------------------------------
 
-IMPORT_ROOTS          = {% if project.import_group.use_base_merging -%}
-                        $(IMPORTDIR)/merged_import{# -#}
-                        {% else -%}
-                        $(foreach imp, $(IMPORTS), $(IMPORTDIR)/$(imp)_import){# -#}
-                        {% endif %}
+IMPORT_ROOTS          = {% for name in project.import_group.import_names -%}
+                        $(IMPORTDIR)/{{ name }}_import{# -#}
+                        {%   if not loop.last %} \
+                        {%   endif -%}
+                        {% endfor %}
 IMPORT_FILES          = $(foreach r, $(IMPORT_ROOTS), $(r).owl){# -#}
                         {% if project.import_group.export_obo %} \
                         $(foreach r, $(IMPORT_ROOTS), $(r).obo){# -#}
@@ -557,7 +561,11 @@ ifeq ($(IMP),true)
 ANNOTATION_PROPERTIES ={% for p in project.import_group.annotation_properties %} {{ p }}{% endfor %}
 {%   endif -%}
 {%   if project.import_group.use_base_merging -%}
-ALL_TERMS             = $(foreach imp, $(IMPORTS), $(IMPORTDIR)/$(imp)_terms.txt)
+ALL_TERMS             = {% for imp in project.import_group.merged_products -%}
+                        $(IMPORTDIR)/{{ imp.id }}_terms.txt{# -#}
+                        {% if not loop.last %} \
+                        {% endif -%}
+                        {% endfor %}
 
 {%     if "slme" == project.import_group.module_type -%}
 $(IMPORTDIR)/merged_import.owl: $(MIRRORDIR)/merged.owl $(ALL_TERMS) \
@@ -665,22 +673,31 @@ $(IMPORTDIR)/%_import.owl: $(MIRRORDIR)/%.owl
 	@false
 
 {%     endif -%}
+{%   endif %}{# !use_base_merging -#}
 .PRECIOUS: $(IMPORTDIR)/%_import.owl
 
 {#
- # An import module of a different type than the default type needs its
- # own specific rule to override the pattern rule above.
- # A module that is marked as "large" (regardless of its type) also
- # needs its own rule, so that it can be selectively excluded when
- # running under IMP_LARGE=false.
- # We generate those rules here.
+ # An import module may require a custom rule:
+ #
+ # 1. If the module is of a different type than the default type, it
+ #    needs its own specific rule to override the pattern rules above.
+ #
+ # 2. If the module is marked as "large" (regardless of its type), it
+ #    needs its own rule so that it can be selectively excluded when
+ #    running under IMP_LARGE=false.
+ #
+ # 3. If we are producing a merged module but that particular module is
+ #    deliberately excluded from the merge, it needs its own rule so
+ #    that it can be generated alongside the merged module.
+ #
+ # We generate all those rules here.
 -#}
-{%     for ont in project.import_group.special_products -%}
+{%   for ont in project.import_group.special_products -%}
 ## Module for ontology: {{ ont.id }} ({{ ont.module_type }})
-{%       if ont.is_large -%}
+{%     if ont.is_large -%}
 ifeq ($(IMP_LARGE),true)
-{%       endif -%}
-{%       if "slme" == ont.module_type -%}
+{%     endif -%}
+{%     if "slme" == ont.module_type -%}
 $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)/{{ ont.id }}_terms.txt $(IMPORTSEED) | all_robot_plugins
 	$(ROBOT) annotate --input $< --remove-annotations \
 	         odk:normalize --add-source true \
@@ -700,7 +717,7 @@ $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)
 	                       --subset-decls true --synonym-decls true \
 	         repair --merge-axiom-annotations true \
 	         $(ANNOTATE_CONVERT_FILE)
-{%       elif "filter" == ont.module_type -%}
+{%     elif "filter" == ont.module_type -%}
 $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)/{{ ont.id }}_terms.txt $(IMPORTSEED) | all_robot_plugins
 	$(ROBOT) annotate --input $< --remove-annotations \
 	         odk:normalize --add-source true \
@@ -720,7 +737,7 @@ $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)
 	                       --subset-decls true --synonym-decls true \
 	         repair --merge-axiom-annotations true \
 	         $(ANNOTATE_CONVERT_FILE)
-{%       elif "mirror" == ont.module_type -%}
+{%     elif "mirror" == ont.module_type -%}
 $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl | all_robot_plugins
 	$(ROBOT) annotate --input $< --remove-annotations \
 	         odk:normalize --base-iri {{ project.uribase }} \
@@ -728,7 +745,7 @@ $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl | all_robot_
 	                       --add-source true \
 	         repair --merge-axiom-annotations true \
 	         $(ANNOTATE_CONVERT_FILE)
-{%       elif "minimal" == ont.module_type -%}
+{%     elif "minimal" == ont.module_type -%}
 $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)/{{ ont.id }}_terms.txt $(IMPORTSEED) | all_robot_plugins
 	$(ROBOT) annotate --input $< --remove-annotations \
 	         odk:normalize --add-source true \
@@ -749,17 +766,16 @@ $(IMPORTDIR)/{{ ont.id }}_import.owl: $(MIRRORDIR)/{{ ont.id }}.owl $(IMPORTDIR)
 	                --select complement \
 	                --select "classes individuals annotation-properties" \
 	         $(ANNOTATE_CONVERT_FILE)
-{%       elif 'custom' -%}
+{%     elif 'custom' -%}
 $(IMPORTDIR)/{{ ont.id }}_import.owl: {% if "no_mirror" != ont.mirror_type %}$(MIRRORDIR)/{{ ont.id }}.owl{% endif %}
 	@echo "ERROR: You have configured {{ ont.id }} as a custom module;"
 	@echo "       This rule needs to be overwritten in {{ project.id }}.Makefile!"
 	@false
-{%       endif -%}
-{%       if ont.is_large -%}
+{%     endif -%}
+{%     if ont.is_large -%}
 endif # IMP_LARGE=true
-{%       endif %}
-{%     endfor -%}
-{%   endif %}{# !use_base_merging -#}
+{%     endif %}
+{%   endfor -%}
 
 {%   if project.import_group.export_obo -%}
 # Convert any import module to OBO (this can be useful for spot-checks
@@ -788,6 +804,9 @@ no-mirror-refresh-imports:
 refresh-imports-excluding-large:
 	$(MAKE) IMP=true MIR=true PAT=false IMP_LARGE=false clean all_imports
 
+{%   if not project.import_group.use_base_merging or project.import_group.special_products -%}
+{# The following two rules only make sense if there are individual
+   import modules to refresh. -#}
 .PHONY: refresh-%
 refresh-%:
 	rm -f $(TMPDIR)/download-mirror-$*.owl.info
@@ -799,7 +818,7 @@ no-mirror-refresh-%:
 	$(MAKE) --assume-new=$(SRC) --assume-new=$(IMPORTDIR)/$*_terms.txt \
 	        IMP=true IMP_LARGE=true MIR=false PAT=false $(IMPORTDIR)/$*_import.owl
 
-
+{%  endif %}
 {% endif %}{# !project.import_group is defined -#}
 
 {% if project.components is not none -%}
@@ -2149,7 +2168,7 @@ Imports management:
 * no-mirror-refresh-imports:		Refresh all imports without downloading mirrors.
 * refresh-imports-excluding-large:	Refresh all imports and mirrors, but skipping the ones labelled
 					as 'is_large'.
-{% if not project.import_group.use_base_merging -%}
+{% if not project.import_group.use_base_merging or project.import_group.special_products -%}
 * refresh-%:				Refresh a single import
 					(i.e. refresh-go will refresh 'imports/go_import.owl').
 * no-mirror-refresh-%:			Refresh a single import without updating the mirror
