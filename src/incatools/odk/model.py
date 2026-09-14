@@ -1109,9 +1109,6 @@ class OntologyProject(JsonSchemaMixin):
     travis_emails: Optional[List[Email]] = None  ## ['obo-ci-reports-all@groups.io']
     """Emails to use in travis configurations."""
 
-    catalog_file: str = "catalog-v001.xml"
-    """Name of the catalog file to be used by the build."""
-
     uribase: str = "http://purl.obolibrary.org/obo"
     """Base URI for PURLs.
 
