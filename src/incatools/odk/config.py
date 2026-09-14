@@ -21,6 +21,14 @@ from .model import (
 )
 
 
+def enum_representer(dumper, data):
+    return yaml.ScalarNode(tag="tag:yaml.org,2002:str", value=str(data))
+
+
+yaml.add_representer(ExportFormat, enum_representer)
+yaml.add_representer(Compression, enum_representer)
+
+
 class ConfigurationError(Exception):
     """Error thrown on any problem with a ODK configuration file."""
 
