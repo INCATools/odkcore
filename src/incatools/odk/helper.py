@@ -23,7 +23,7 @@ from .download import Compression, DownloadError, RemoteFileInfo, download_file
 from .template import DEFAULT_TEMPLATE_DIR, RESOURCES_DIR
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main() -> None:
     """Helper commands for ODK workflows."""
     logging.basicConfig(level=logging.INFO)
