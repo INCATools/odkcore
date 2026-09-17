@@ -7,6 +7,7 @@
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -220,3 +221,121 @@ def download(url, output, reference, cache_info, max_retry, try_gzip) -> None:
                 logging.warning(
                     f"{output.name}: Download failed from <{attempt[0]}>: {e}"
                 )
+
+
+@main.command()
+@click.argument("ontology", type=click.Path(exists=True))
+@click.argument(
+    "patches_directory",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, path_type=Path),
+)
+@click.option(
+    "--catalog",
+    type=click.Path(exists=True),
+    help="The XML Catalog used to resolve imports.",
+)
+@click.option(
+    "--context",
+    type=click.Path(exists=True),
+    help="The context file to resolve CURIEs.",
+)
+@click.option(
+    "--format", default="obo", help="The format in which to write the result back."
+)
+def apply_patches(ontology, patches_directory, catalog, context, format):
+    """Apply patches to an ontology.
+
+    This command finds all patch files in a supported format in the specified
+    directory and applies them to the ontology.
+
+    Supported formats:
+    - .obo: OBO Flat File, merged as it is;
+    - .tsv: ROBOT template, instantiated and merged;
+    - .kgcl: KGCL patch file, applied.
+    """
+    if "ROBOT_PLUGINS_DIRECTORY" not in os.environ:
+        plugins_dir = RESOURCES_DIR / "robot/plugins"
+        os.environ["ROBOT_PLUGINS_DIRECTORY"] = plugins_dir.as_posix()
+
+    applied = []
+    total = 0
+
+    for path in sorted(patches_directory.iterdir()):
+        if path.is_dir():
+            continue
+        if path.suffix not in [".obo", ".tsv", ".kgcl"]:
+            continue
+
+        # We run one ROBOT command for each patch. It would in principle
+        # be possible to build a single, long command that applies all
+        # patches in one go, and that would be more efficient (only one
+        # call to ROBOT that only has to read the input ontology once),
+        # but in case some patches failed to apply, this would not allow
+        # to detect which patches could not be applied.
+        cmd = ["robot"]
+        if catalog is not None:
+            cmd.extend(["--catalog", catalog])
+        if context is not None:
+            cmd.extend(["--add-prefixes", context])
+
+        if path.suffix == ".obo":
+            logging.info(f"Applying OBO patch {path}")
+            cmd.extend(
+                [
+                    "merge",
+                    "--input",
+                    ontology,
+                    "--collapse-import-closure",
+                    "false",
+                    "--input",
+                    path,
+                ]
+            )
+        elif path.suffix == ".tsv":
+            logging.info(f"Applying template-based patch {path}")
+            cmd.extend(
+                [
+                    "template",
+                    "--input",
+                    ontology,
+                    "--collapse-import-closure",
+                    "false",
+                    "--template",
+                    path,
+                    "--merge-before",
+                ]
+            )
+        elif path.suffix == ".kgcl":
+            logging.info(f"Applying KGCL patch {path}")
+            cmd.extend(
+                [
+                    "kgcl:apply",
+                    "--input",
+                    ontology,
+                    "--kgcl-file",
+                    path,
+                    "--fail-on-reject",
+                    "--no-partial-apply",
+                ]
+            )
+
+        cmd.extend(["convert", "--format", format, "--output", ontology])
+        if format == "obo":
+            cmd.extend(["--check", "false"])
+
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (out, err) = p.communicate()
+        if p.returncode != 0:
+            logging.error(f"Failed to apply patch {path}")
+            if err:
+                with open(path.as_posix() + ".ERRORS", "wb") as f:
+                    f.write(err)
+        else:
+            applied.append(path)
+
+        total += 1
+
+    if applied and total:
+        logging.info(f"Successfully applied {len(applied)}/{total} patches")
+    for path in applied:
+        path.unlink()
