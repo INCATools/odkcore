@@ -210,7 +210,11 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
 
     :param obj: The dictionary to update.
     """
-    # First take care of stubs, if needed
+    # First remove pointless null values (typically the result of an
+    # auto-generated config file, when seeding without a file)
+    purge_null_values(obj)
+
+    # Then take care of stubs, if needed
     update_stubs(obj)
 
     # Then all the other simple changes
@@ -264,6 +268,18 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
         for spec in obj["export_formats"]:
             if spec["format"] != "db":
                 spec["compressions"] = ["none", "gz"]
+
+
+def purge_null_values(obj: Dict[str, Any]) -> None:
+    """Removes all null values from a dictionary, recursively."""
+    nulls = []
+    for k, v in obj.items():
+        if v is None:
+            nulls.append(k)
+        elif isinstance(v, dict):
+            purge_null_values(v)
+    for null in nulls:
+        obj.pop(null)
 
 
 def pop_key(obj: Dict[str, Any], path: str) -> Optional[str]:
@@ -341,4 +357,6 @@ def save_config(project: OntologyProject, output: TextIO) -> None:
     :param project: The project to save.
     :param output: The file-like object where to save the project.
     """
-    output.write(yaml.dump(project.to_dict(), default_flow_style=False))
+    project_as_dict = project.to_dict()
+    purge_null_values(project_as_dict)
+    output.write(yaml.dump(project_as_dict, default_flow_style=False))
