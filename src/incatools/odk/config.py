@@ -270,16 +270,20 @@ def update_config_dict(obj: Dict[str, Any]) -> None:
                 spec["compressions"] = ["none", "gz"]
 
 
-def purge_null_values(obj: Dict[str, Any]) -> None:
+def purge_null_values(obj: Any) -> None:
     """Removes all null values from a dictionary, recursively."""
-    nulls = []
-    for k, v in obj.items():
-        if v is None:
-            nulls.append(k)
-        elif isinstance(v, dict):
-            purge_null_values(v)
-    for null in nulls:
-        obj.pop(null)
+    if isinstance(obj, dict):
+        nulls = []
+        for k, v in obj.items():
+            if v is None:
+                nulls.append(k)
+            else:
+                purge_null_values(v)
+        for null in nulls:
+            obj.pop(null)
+    elif isinstance(obj, list):
+        for i in obj:
+            purge_null_values(i)
 
 
 def pop_key(obj: Dict[str, Any], path: str) -> Optional[str]:
