@@ -575,7 +575,7 @@ class ImportGroup(ProductGroup):
     """
 
     def derive_fields(self, project: OntologyProject) -> None:
-        # The following derived fields are somehwat redundant (for
+        # The following derived fields are somewhat redundant (for
         # example, `unmerged_products` could easily be derived from
         # `merged_products`), but it is much more practical to derive
         # them once and for all here (in Python) than having to do that
