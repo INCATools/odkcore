@@ -84,3 +84,11 @@ workflows = [
     "sssom",
     "tsvalid",
 ]
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git,.git-meta,.gitignore,.gitattributes,*.pdf,*.svg'
+check-hidden = true
+# ignore-regex = ''
+# eto: ontology id used in tests/configs/test-edit-obo.yaml
+ignore-words-list = 'eto'
