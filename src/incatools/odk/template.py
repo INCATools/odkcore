@@ -382,11 +382,8 @@ class Generator(object):
 
         cmd = f"robot odk:import -i {self.project.id}-edit.{self.project.edit_format} --exclusive true"
         if self.project.import_group is not None:
-            if self.project.import_group.use_base_merging:
-                cmd += f" --add {base}/imports/merged_import.owl"
-            else:
-                for product in self.project.import_group.products:
-                    cmd += f" --add {base}/imports/{product.id}_import.owl"
+            for name in self.project.import_group.import_names:
+                cmd += f" --add {base}/imports/{name}_import.owl"
         if self.project.components is not None:
             for component in self.project.components.products:
                 cmd += f" --add {base}/components/{component.filename}"
@@ -394,8 +391,6 @@ class Generator(object):
             cmd += f" --add {base}/patterns/definitions.owl"
             if self.project.import_pattern_ontology:
                 cmd += f" --add {base}/patterns/pattern.owl"
-        if self.project.orcidio_support:
-            cmd += f" --add {base}/imports/orcidio_import.owl"
 
         if self.project.edit_format == "owl":
             cmd += f" convert -f ofn -o {self.project.id}-edit.owl"

@@ -22,7 +22,7 @@ from .template import DEFAULT_TEMPLATE_DIR, Generator, InstallPolicy
 from .util import runcmd
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main():
     logging.basicConfig(level=logging.INFO)
 

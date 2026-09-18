@@ -24,16 +24,9 @@
 format-version: 1.2
 {%   if project.manage_import_declarations -%}
 {%     if project.import_group is defined -%}
-{%       if project.import_group.use_base_merging -%}
-import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl
-{%       else -%}
-{%         for imp in project.import_group.products -%}
-import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl
-{%         endfor -%}
-{%       endif -%}
-{%     endif -%}
-{%     if project.orcidio_support -%}
-import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl
+{%       for name in project.import_group.import_names -%}
+import: {{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl
+{%       endfor -%}
 {%     endif -%}
 {%     if project.components is defined -%}
 {%       for component in project.components.products -%}
@@ -85,16 +78,9 @@ Prefix(dcterms:=<http://purl.org/dc/terms/>)
 Ontology(<{{ project.uribase }}/{{ project.id }}.owl>
 {%   if project.manage_import_declarations -%}
 {%     if project.import_group is defined %}
-{%       if project.import_group.use_base_merging -%}
-Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl>)
-{%       else -%}
-{%         for imp in project.import_group.products -%}
-Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl>)
-{%         endfor -%}
-{%       endif -%}
-{%     endif -%}
-{%     if project.orcidio_support -%}
-Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>)
+{%       for name in project.import_group.import_names -%}
+Import(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>)
+{%       endfor -%}
 {%     endif -%}
 {%     if project.components is defined -%}
 {%       for component in project.components.products -%}
@@ -206,14 +192,14 @@ Datatype: rdf:PlainLiteral
 imports/%_import.owl: mirror/%.owl
 	echo "ERROR: You have configured your default module type to be custom; this behavior needs to be overwritten in {{ project.id }}.Makefile!" && touch $@
 {%   endif -%}
-{%   if project.import_group.use_base_merging -%}
+{%   for name in project.import_group.import_names -%}
 {#
 
-  Single merged import file
+  Import files, one per import (including the merged import module, if any)
 
 -#}
-^^^ src/ontology/imports/merged_import.owl
-Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl>)
+^^^ src/ontology/imports/{{ name }}_import.owl
+Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>)
 Prefix(obo:=<http://purl.obolibrary.org/obo/>)
 Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
 Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
@@ -222,31 +208,10 @@ Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
 Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
 Prefix(oboInOwl:=<http://www.geneontology.org/formats/oboInOwl#>)
 
-Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/merged_import.owl>
+Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ name }}_import.owl>
 # This is a placeholder, it will be regenerated when makefile is first executed.
 )
-{%   else %}{# ! project.import_group.use_base_merging -#}
-{#
-
-  Imports files, one per import
-
--#}
-{%     for imp in project.import_group.products -%}
-^^^ src/ontology/imports/{{ imp.id }}_import.owl
-Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl>)
-Prefix(obo:=<http://purl.obolibrary.org/obo/>)
-Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
-Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
-Prefix(xml:=<http://www.w3.org/XML/1998/namespace>)
-Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
-Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
-Prefix(oboInOwl:=<http://www.geneontology.org/formats/oboInOwl#>)
-
-Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/{{ imp.id }}_import.owl>
-# This is a placeholder, it will be regenerated when makefile is first executed.
-)
-{%     endfor -%}
-{%   endif -%}
+{%   endfor -%}
 {#
 
   Import Term files
@@ -259,24 +224,11 @@ Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ pr
 
 -#}
 {%   for imp in project.import_group.products -%}
+{%     if imp.module_type != "orcidio" -%}
 ^^^ src/ontology/imports/{{ imp.id }}_terms.txt
+{%     endif -%}
 {%   endfor -%}
 {% endif %}{# ! project.import_group is defined -#}
-{% if project.orcidio_support -%}
-^^^ src/ontology/imports/orcidio_import.owl
-Prefix(:=<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>)
-Prefix(obo:=<http://purl.obolibrary.org/obo/>)
-Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
-Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
-Prefix(xml:=<http://www.w3.org/XML/1998/namespace>)
-Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
-Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
-Prefix(oboInOwl:=<http://www.geneontology.org/formats/oboInOwl#>)
-
-Ontology(<{{ project.uribase }}/{% if project.uribase_suffix is not none %}{{ project.uribase_suffix }}{% else %}{{ project.id }}{% endif %}/imports/orcidio_import.owl>
-# This is a placeholder, it will be regenerated when makefile is first executed.
-)
-{% endif -%}
 {#
 
   Metadata files.
@@ -316,42 +268,72 @@ For more background see:
 ---
 layout: ontology_detail
 id: {{ project.id }}
-title: {{ project.title }}
-jobs:
-  - id: https://travis-ci.org/{{ project.github_org }}/{{ project.repo }}
-    type: travis-ci
+title: "{{ project.title }}"
 build:
+{%- if project.github_org %}
   checkout: git clone https://github.com/{{ project.github_org }}/{{ project.repo }}.git
+{%- elif project.repo_url %}
+{#- The repo_url is primarily intended to point to a browsable version of
+   of the repo, but most Git hosting services also serve a repository
+   compatible with the use of `git clone` at the main repo URL. #}
+  checkout: git clone {{ project.repo_url }}
+{%- else %}
+  checkout: git clone <URL TO CLONEABLE REPO>
+{%- endif %}
   system: git
   path: "."
 contact:
-  email: {{ project.contact.email }}
-  label: {{ project.contact.name }}
-  github: {{ project.contact.github }}
-description: {{ project.title }} is an ontology...
-domain: stuff
+  email: <CONTACT PERSON EMAIL>
+  label: <CONTACT PERSON NAME>
+{%- if project.github_org %}
+  github: <CONTACT PERSON GITHUB HANDLE>
+{%- endif %}
+{%- if project.description %}
+description: "{{ project.description }}"
+{%- else %}
+description: <SHORT DESCRIPTION OF THE ONTOLOGY>
+{%- endif %}
+domain: <ONTOLOGY DOMAIN>
+{%- if project.github_org %}
 homepage: https://github.com/{{ project.github_org }}/{{ project.repo }}
+{%- elif project.repo_url %}
+homepage: {{ project.repo_url }}
+{%- endif %}
 products:
   - id: {{ project.id }}.owl
     name: "{{ project.title }} main release in OWL format"
-  - id: {{ project.id }}.obo
-    name: "{{ project.title }} additional release in OBO format"
-  - id: {{ project.id }}.json
-    name: "{{ project.title }} additional release in OBOJSon format"
-  - id: {{ project.id }}/{{ project.id }}-base.owl
-    name: "{{ project.title }} main release in OWL format"
-  - id: {{ project.id }}/{{ project.id }}-base.obo
-    name: "{{ project.title }} additional release in OBO format"
-  - id: {{ project.id }}/{{ project.id }}-base.json
-    name: "{{ project.title }} additional release in OBOJSon format"
+{%- for spec in project.export_formats %}
+{%-   if spec.format != "owl" %}
+  - id: {{ project.id }}.{{ spec.format }}
+    name: "{{ project.title }} main release in {{ spec.format|upper }} format"
+{%-   endif %}
+{%- endfor %}
+{%- for artefact in project.release_artefacts %}
+{%-   if artefact != project.primary_release %}
+  - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.owl
+    name: "{{ project.title }} {{ artefact|upper }} release in OWL format"
+{%-   for spec in project.export_formats %}
+{%-     if spec.format != "owl" %}
+  - id: {{ project.id }}/{{ project.id }}-{{ artefact }}.{{ spec.format }}
+    name: "{{ project.title }} {{ artefact|upper }} release in {{ spec.format|upper}} format"
+{%-     endif %}
+{%-   endfor %}
+{%-   endif %}
+{%- endfor %}
+{%- if project.import_group is not none %}
 dependencies:
-{%   for imp in project.import_group.products -%}
+{%-   for imp in project.import_group.products %}
 - id: {{ imp.id }}
-{%   endfor -%}
+{%-   endfor %}
+{%- endif %}
+{%- if project.github_org %}
 tracker: https://github.com/{{ project.github_org }}/{{ project.repo }}/issues
+{%- else %}
+tracker: <URL TO ISSUE TRACKER>
+{%- endif %}
 license:
-  url: http://creativecommons.org/licenses/by/3.0/
-  label: CC-BY
+  url: {{ project.license }}
+  label: <HUMAN READABLE LABEL OF THE LICENSE>
 activity_status: active
 ---
 
@@ -365,8 +347,16 @@ idspace: {{ project.id|upper }}
 base_url: /obo/{{ project.id }}
 
 products:
-- {{ project.id }}.owl: https://raw.githubusercontent.com/{{ project.github_org }}/{{ project.repo }}/{{ project.git_main_branch }}/{{ project.id }}.owl
-- {{ project.id }}.obo: https://raw.githubusercontent.com/{{ project.github_org }}/{{ project.repo }}/{{ project.git_main_branch }}/{{ project.id }}.obo
+{%- if project.github_org %}
+- {{ project.id }}.owl: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/{{ project.id }}.owl
+{%-   for spec in project.export_formats %}
+{%-     if spec.format != "owl" %}
+- {{ project.id }}.{{ spec.format }}: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/{{ project.id }}.{{ spec.format }}
+{%-     endif %}
+{%-   endfor %}
+{%- else %}
+- {{ project.id }}.owl: <URL TO LATEST RELEASE>
+{%- endif %}
 
 term_browser: ontobee
 example_terms:
@@ -375,17 +365,67 @@ example_terms:
 entries:
 
 - prefix: /releases/
-  replacement: https://raw.githubusercontent.com/{{ project.github_org }}/{{ project.repo }}/v
+{%- if project.github_org %}
+  replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/download/v
+{%- else %}
+  replacement: <URL TO ALL RELEASES>
+{%- endif %}
 
 - prefix: /tracker/
+{%- if project.github_org %}
   replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/issues
+{%- else %}
+  replacement: <URL TO ISSUE TRACKER>
+{%- endif %}
 
 - prefix: /about/
   replacement: http://www.ontobee.org/ontology/{{ project.id|upper }}?iri=http://purl.obolibrary.org/obo/
 
-## generic fall-through, serve direct from github by default
+{%- if project.import_group is not none or project.components is not none or project.use_dosdps %}
+
+# For files that are imported from the -edit file, we cannot point to
+# the latest release download folder as we do below in the "generic"
+# fall-through, because those files are _not_ release artefacts and are
+# absent from that folder. Instead, we point to the current {{ project.git_main_branch }} branch.
+{%-   if project.import_group is not none %}
+
+- prefix: /imports/
+{%-     if project.github_org %}
+  replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/raw/refs/heads/{{ project.git_main_branch }}/src/ontology/imports/
+{%-     else %}
+  replacement: <URL TO MAIN BRANCH'S SRC/ONTOLOGY/IMPORTS DIRECTORY>
+{%-     endif %}
+
+{%-   endif %}
+{%-   if project.components is not none %}
+
+- prefix: /components/
+{%-     if project.github_org %}
+  replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/raw/refs/heads/{{ project.git_main_branch }}/src/ontology/components/
+{%-     else %}
+  replacement: <URL TO MAIN BRANCH'S SRC/ONTOLOGY/COMPONENTS DIRECTORY>
+{%-     endif %}
+
+{%-   endif %}
+{%-   if project.use_dosdps %}
+
+- prefix: /patterns/
+{%-     if project.github_org %}
+  replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/raw/refs/heads/{{ project.git_main_branch }}/src/patterns/
+{%-     else %}
+  replacement: <URL TO MAIN BRANCH'S SRC/PATTERNS DIRECTORY>
+{%-     endif %}
+
+{%-   endif %}
+{%- endif %}
+
+# Generic fall-through, serve from the latest release artefacts
 - prefix: /
-  replacement: https://raw.githubusercontent.com/{{ project.github_org }}/{{ project.repo }}/{{ project.git_main_branch }}/
+{%- if project.github_org %}
+  replacement: https://github.com/{{ project.github_org }}/{{ project.repo }}/releases/latest/download/
+{%- else %}
+  replacement: <URL TO RELEASES DIRECTORY>
+{%- endif %}
 {% endif %}{# ! project.create_obo_metadata -#}
 {% if project.use_templates -%}
 ^^^ src/templates/README.md
