@@ -61,7 +61,7 @@ def _must_install_file(
 
     :param templatefile: The name of the template, relative to the root
         template directory.
-    :param targetfile: Where the template should be instanciated, as
+    :param targetfile: Where the template should be instantiated, as
         either an absolute pathname or a pathname relative to the
         current working directory.
     :param policies: The list of per-file policies as explained above.
@@ -104,7 +104,7 @@ class Generator(object):
     def generate(self, input: Path | str) -> str:
         """Renders one template file.
 
-        :param input: The path to the template to instanciate.
+        :param input: The path to the template to instantiate.
 
         :returns: The text of the instantiated template.
         """
