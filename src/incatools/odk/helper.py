@@ -23,7 +23,7 @@ from .download import Compression, DownloadError, RemoteFileInfo, download_file
 from .template import DEFAULT_TEMPLATE_DIR, RESOURCES_DIR
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main() -> None:
     """Helper commands for ODK workflows."""
     logging.basicConfig(level=logging.INFO)
@@ -126,10 +126,10 @@ def check_rdfxml(file, lightrdf, rdflib, jena) -> None:
 
 @main.command()
 @click.option(
-    "--tools/--no-tools", default=True, help="Print informations about available tools."
+    "--tools/--no-tools", default=True, help="Print information about available tools."
 )
 def info(tools) -> None:
-    """Print informations about the Ontology Development Kit backend."""
+    """Print information about the Ontology Development Kit backend."""
     print(f"ODK Core {__version__}")
     backend_info = shutil.which("odk-info")
     if backend_info is not None:

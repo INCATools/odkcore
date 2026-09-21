@@ -444,7 +444,7 @@ class ProductGroup(JsonSchemaMixin):
     def derive_fields(self, project: OntologyProject) -> None:
         """Derive field values wherever needed.
 
-        This method may be overriden by any product group subclass that
+        This method may be overridden by any product group subclass that
         needs to automatically set some values (either in the group
         itself, or in any of its product). Notably, this can be used to
         propagate default values set at the level of the group down to
@@ -575,7 +575,7 @@ class ImportGroup(ProductGroup):
     """
 
     def derive_fields(self, project: OntologyProject) -> None:
-        # The following derived fields are somehwat redundant (for
+        # The following derived fields are somewhat redundant (for
         # example, `unmerged_products` could easily be derived from
         # `merged_products`), but it is much more practical to derive
         # them once and for all here (in Python) than having to do that
@@ -616,7 +616,7 @@ class ImportGroup(ProductGroup):
                 # compatibility
                 p.module_type = "slme"
             if p.module_type == "slme":
-                # Use group-level SLME parameters unless overriden
+                # Use group-level SLME parameters unless overridden
                 if p.module_type_slme is None:
                     p.module_type_slme = self.module_type_slme
                 if p.slme_individuals is None:
@@ -1035,7 +1035,7 @@ class OntologyProject(JsonSchemaMixin):
     """Amount of memory to allocate to OWLTools.
 
     Note that OWLTools is no longer used by any standard ODK workflow,
-    but the option may still impact any remaning use of OWLTools in a
+    but the option may still impact any remaining use of OWLTools in a
     custom workflow.
     """
 

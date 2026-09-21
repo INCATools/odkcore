@@ -22,7 +22,7 @@ from .template import DEFAULT_TEMPLATE_DIR, Generator, InstallPolicy
 from .util import runcmd
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main():
     logging.basicConfig(level=logging.INFO)
 
@@ -210,7 +210,7 @@ def update(templatedir):
     help="""The ODK configuration file.
             This is optional, configuration options can also be passed
             on the command line, but an explicit configuration file is
-            prefered.""",
+            preferred.""",
 )
 @click.option(
     "-c",
