@@ -9,6 +9,7 @@ from time import sleep
 from typing import Any, Dict, Tuple
 
 import requests
+from requests.exceptions import RequestException
 
 from .download import RETRIABLE_HTTP_ERRORS
 
@@ -66,13 +67,7 @@ class GitHubHelper(object):
 
             self.cache[name] = (tagname, sha)
             return (tagname, sha)
-        except (
-            KeyError,
-            requests.exceptions.ConnectTimeout,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError,
-            requests.exceptions.ReadTimeout,
-        ):
+        except (KeyError, RequestException):
             # We don't really care about what went wrong exactly (e.g.
             # network issue or unexpected JSON content).
             return None
@@ -95,3 +90,6 @@ class GitHubHelper(object):
                 sleep(1)
             else:
                 response.raise_for_status()
+                # We could get there upon receiving a non-error HTTP
+                # status (e.g. 203, 204)
+                raise RequestException(f"Unexpected status: {response.status_code}")
