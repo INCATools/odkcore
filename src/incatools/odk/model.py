@@ -1155,6 +1155,12 @@ class OntologyProject(JsonSchemaMixin):
     Currently available workflows: docs, diff, qc, release-diff.
     """
 
+    enable_dependabot: bool = False
+    """Enables Dependabot alerts for outdated GitHub Actions.
+
+    This is only meaningful if `ci` is set to `github_actions`.
+    """
+
     import_pattern_ontology: bool = False
     """Imports the DOSDP-derived pattern.owl file into the ontology."""
 
