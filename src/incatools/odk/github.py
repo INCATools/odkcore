@@ -33,7 +33,7 @@ class GitHubHelper(object):
         """Gets the commit ID for the latest release of a GitHub project.
 
         :param name: The name of a GitHub project, in `owner/repo` form.
-        :param tag: The default tag to fallback to if we can't get the
+        :param default: The default tag to fallback to if we can't get the
             required information from GitHub.
         :returns: A string of the form `XXXX # TAG`, where `XXXX` is the
             commit ID of the latest release and `TAG` is the
