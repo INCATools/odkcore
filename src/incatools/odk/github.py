@@ -6,7 +6,7 @@
 # for the detailed conditions.
 
 from time import sleep
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Set, Tuple
 
 import requests
 from requests.exceptions import RequestException
@@ -23,9 +23,11 @@ class GitHubHelper(object):
     """
 
     cache: Dict[str, Tuple[str, str]]
+    failure_cache: Set[str]
 
     def __init__(self):
         self.cache = {}
+        self.failure_cache = set()
 
     def get_latest_release_sha(self, name: str, default: str) -> str:
         """Gets the commit ID for the latest release of a GitHub project.
@@ -52,7 +54,7 @@ class GitHubHelper(object):
             None if we could not obtain the information from GitHub.
         """
         cached = self.cache.get(name)
-        if cached:
+        if cached or name in self.failure_cache:
             return cached
 
         try:
@@ -70,6 +72,7 @@ class GitHubHelper(object):
         except (KeyError, RequestException):
             # We don't really care about what went wrong exactly (e.g.
             # network issue or unexpected JSON content).
+            self.failure_cache.add(name)
             return None
 
     def _query_github_api(self, endpoint: str, max_retry: int = 4) -> Dict[str, Any]:
