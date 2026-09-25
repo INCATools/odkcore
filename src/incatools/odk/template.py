@@ -18,6 +18,7 @@ from xml.etree import ElementTree
 from defusedxml import ElementTree as DefusedElementTree
 from jinja2 import Template
 
+from .github import GitHubHelper
 from .model import OntologyProject
 from .util import runcmd
 
@@ -87,6 +88,7 @@ class Generator(object):
 
     project: OntologyProject
     templatedir: Path
+    gh_helper: GitHubHelper
 
     def __init__(self, project: OntologyProject, templatedir: Optional[str] = None):
         """Creates a new instance for the specified ontology project.
@@ -100,6 +102,7 @@ class Generator(object):
             self.templatedir = Path(templatedir)
         else:
             self.templatedir = DEFAULT_TEMPLATE_DIR
+        self.gh_helper = GitHubHelper()
 
     def generate(self, input: Path | str) -> str:
         """Renders one template file.
@@ -112,10 +115,12 @@ class Generator(object):
             template = Template(file_.read())
             if "ODK_VERSION" in os.environ:
                 return template.render(
-                    project=self.project, env={"ODK_VERSION": os.getenv("ODK_VERSION")}
+                    project=self.project,
+                    gh=self.gh_helper,
+                    env={"ODK_VERSION": os.getenv("ODK_VERSION")},
                 )
             else:
-                return template.render(project=self.project)
+                return template.render(project=self.project, gh=self.gh_helper)
 
     def generate_from_name(self, name: str) -> str:
         """Renders one template.
