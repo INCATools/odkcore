@@ -184,6 +184,8 @@ def update(templatedir):
     # may have been manually edited.
     mg.update_gitignore(templatedir + "/.gitignore.jinja2", "../../.gitignore")
 
+    mg.post_update("../..")
+
     if project.manage_import_declarations:
         mg.update_xml_catalog(
             templatedir + "/src/ontology/catalog-v001.xml.jinja2", "catalog-v001.xml"
@@ -348,14 +350,11 @@ def seed(
         if gitemail is not None:
             os.environ["GIT_AUTHOR_EMAIL"] = gitemail
             os.environ["GIT_COMMITTER_EMAIL"] = gitemail
-        files_to_commit = [
-            t for t in tgts if not t.startswith(outdir + "/src/ontology/tmp/stamp-")
-        ]
         runcmd(
             "cd {dir} && git init -b {branch} && git add {files} && git commit -m 'initial commit'".format(
                 dir=outdir,
                 branch=project.git_main_branch,
-                files=" ".join([t.replace(outdir, ".", 1) for t in files_to_commit]),
+                files=" ".join([t.replace(outdir, ".", 1) for t in tgts]),
             )
         )
         runcmd(
