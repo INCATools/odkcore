@@ -209,12 +209,10 @@ jobs:
       - name: Prepare edit file comment
         run: "echo \"<details>\n <summary> Here's a diff of your edit file (unreasoned) </summary> \n\" >edit-comment.md; cat edit-diff.md/edit-diff.md >>edit-comment.md"
       - name: Post comment
-        env:
-          GITHUB_TOKEN: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
-        uses: NejcZdovc/comment-pr@{{ gh.get_latest_release_sha("NejcZdovc/comment-pr", "v2") }}
+        uses: marocchino/sticky-pull-request-comment@{{ gh.get_latest_release_sha("marocchino/sticky-pull-request-comment", "v3") }}
         with:
-          file: "../../edit-comment.md"
-          identifier: "UNREASONED"
+          path: "../../edit-comment.md"
+          header: "UNREASONED"
 {%     endif %}{# 'diff' in project.workflows -#}
 {%     if 'release-diff' in project.workflows -%}
 ^^^ .github/workflows/release-diff.yml
@@ -241,13 +239,10 @@ jobs:
             GITHUB_SHA: {% raw %}${{ github.sha }}{% endraw %}
         run: "echo \"[Here's a diff of how this release impacts {{ project.id }}.owl](https://github.com/obophenotype/{{ project.repo }}/blob/${% raw %}${{ env.GITHUB_SHA }}{% endraw %}/src/ontology/reports/release-diff.md)\" >comment.md"
       - name: Post reasoned comment
-        env:
-          GITHUB_TOKEN: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
-        uses: NejcZdovc/comment-pr@{{ gh.get_latest_release_sha("NejcZdovc/comment-pr", "v2") }}
+        uses: marocchino/sticky-pull-request-comment@{{ gh.get_latest_release_sha("marocchino/sticky-pull-request-comment", "v3") }}
         with:
-          github_token: {% raw %}${{ env.GITHUB_TOKEN }}{% endraw %}
-          file: "../../comment.md"
-          identifier: "RELEASE-DIFF"
+          path: "../../comment.md"
+          header: "RELEASE-DIFF"
 {%     endif %}{# ! 'release-diff' in project.workflows -#}
 {%     if 'docs' in project.workflows -%}
 ^^^ .github/workflows/docs.yml
