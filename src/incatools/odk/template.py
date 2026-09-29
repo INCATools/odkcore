@@ -8,6 +8,7 @@
 import fnmatch
 import logging
 import os
+import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -20,7 +21,7 @@ from jinja2 import Template
 
 from .github import GitHubHelper
 from .model import OntologyProject
-from .util import runcmd
+from .util import grep, runcmd
 
 TEMPLATE_SUFFIX = ".jinja2"
 DEFAULT_TEMPLATE_DIR = Path(__file__).parent.resolve() / "templates"
@@ -402,3 +403,33 @@ class Generator(object):
         else:
             cmd += f" convert --check false -o {self.project.id}-edit.obo"
         runcmd(cmd)
+
+    def post_update(self, root: str) -> None:
+        """Performs various tasks after updating a repository.
+
+        For now, this means ensuring that newly added components will be
+        built after the update, without requiring the user to explicitly
+        run `make recreate-components`.
+
+        :param root: Path to the root directory of the repository.
+        """
+        rootdir = Path(root)
+        if self.project.components is not None:
+            compdir = rootdir / "src/ontology/components"
+            tmpdir = rootdir / "src/ontology/tmp"
+            now = time.time()
+            for component in self.project.components.products:
+                compfile = compdir / component.filename
+                if not grep(
+                    compfile, "<!-- This is a placeholder, it will be regenerated"
+                ):
+                    # This is not a newly added component, nothing to do
+                    continue
+
+                # 1. Make the component look older than the stamp file
+                # (one minute should be more than enough)
+                os.utime(compfile, (now - 60, now - 60))
+
+                # 2. Create the stamp file
+                stamp = tmpdir / f"stamp-component-{component.filename}"
+                stamp.touch()

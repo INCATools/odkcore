@@ -184,6 +184,8 @@ def update(templatedir):
     # may have been manually edited.
     mg.update_gitignore(templatedir + "/.gitignore.jinja2", "../../.gitignore")
 
+    mg.post_update("../..")
+
     if project.manage_import_declarations:
         mg.update_xml_catalog(
             templatedir + "/src/ontology/catalog-v001.xml.jinja2", "catalog-v001.xml"

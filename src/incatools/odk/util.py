@@ -6,7 +6,9 @@
 # for the detailed conditions.
 
 import logging
+import re
 import subprocess
+from pathlib import Path
 
 
 def runcmd(cmd: str) -> None:
@@ -30,3 +32,18 @@ def runcmd(cmd: str) -> None:
         logging.error(err)
     if p.returncode != 0:
         raise Exception("Failed: {}".format(cmd))
+
+
+def grep(file: Path, needle: str) -> bool:
+    """Searches for a pattern anywhere in a file,
+
+    :param file: The file to grep into.
+    :param needle: The pattern to look for.
+    :returns: True if the file contains the pattern.
+    """
+    pattern = re.compile(needle)
+    with file.open("r") as fd:
+        for line in fd:
+            if pattern.search(line):
+                return True
+    return False
