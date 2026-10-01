@@ -196,7 +196,7 @@ jobs:
       - name: Post reasoned comment
         uses: marocchino/sticky-pull-request-comment@{{ gh.get_latest_release_sha("marocchino/sticky-pull-request-comment", "v3") }}
         with:
-          path: "../../comment.md"
+          path: "comment.md"
           header: "REASONED"
       - uses: actions/checkout@{{ gh.get_latest_release_sha("actions/checkout", "v7") }}
       - name: Download edit diff
@@ -209,7 +209,7 @@ jobs:
       - name: Post comment
         uses: marocchino/sticky-pull-request-comment@{{ gh.get_latest_release_sha("marocchino/sticky-pull-request-comment", "v3") }}
         with:
-          path: "../../edit-comment.md"
+          path: "edit-comment.md"
           header: "UNREASONED"
 {%     endif %}{# 'diff' in project.workflows -#}
 {%     if 'release-diff' in project.workflows -%}
@@ -239,7 +239,7 @@ jobs:
       - name: Post reasoned comment
         uses: marocchino/sticky-pull-request-comment@{{ gh.get_latest_release_sha("marocchino/sticky-pull-request-comment", "v3") }}
         with:
-          path: "../../comment.md"
+          path: "comment.md"
           header: "RELEASE-DIFF"
 {%     endif %}{# ! 'release-diff' in project.workflows -#}
 {%     if 'docs' in project.workflows -%}
