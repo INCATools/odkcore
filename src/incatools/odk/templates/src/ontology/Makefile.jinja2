@@ -1111,17 +1111,18 @@ EXTERNAL_PATTERN_FILES  = $(notdir $(EXTERNAL_PATTERN_URLS))
 pattern_clean:
 	rm -f $(PATTERN_CLEAN_FILES)
 
-ifeq ($(PAT),true)
-
-.PHONY: patterns dosdp
-patterns dosdp: dosdp_validation $(PATTERNDIR)/pattern.owl $(PATTERNDIR)/definitions.owl
-
-.PHONY: pattern_schema_checks
+# Validation only reads the pattern files, so it runs regardless of PAT
+.PHONY: pattern_schema_checks dosdp_validation
 pattern_schema_checks dosdp_validation: $(TMPDIR)/stamp-pattern-schema-checks
 
 $(TMPDIR)/stamp-pattern-schema-checks: $(ALL_PATTERN_FILES) | $(TMPDIR)
 	$(PATTERN_TESTER) $(PATTERNDIR)/dosdp-patterns
 	touch $@
+
+ifeq ($(PAT),true)
+
+.PHONY: patterns dosdp
+patterns dosdp: dosdp_validation $(PATTERNDIR)/pattern.owl $(PATTERNDIR)/definitions.owl
 
 .PHONY: download_patterns
 download_patterns: | $(TMPDIR)
@@ -1307,9 +1308,6 @@ else # PAT=false
 $(TMPDIR)/all_pattern_terms.txt: $(PATTERNDIR)/definitions.owl
 	$(ROBOT) query --input $< --use-graphs true --format csv \
 	               --query $(SPARQLDIR)/terms.sparql $@
-
-# Dummy target to allow "make test" to skip DOSDP validation under PAT=false
-dosdp_validation:
 endif
 
 
