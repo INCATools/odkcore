@@ -177,14 +177,36 @@ def info(tools) -> None:
             then fallback to "U". This is enabled by default, unless the
             provided URL already points to a compressed file.""",
 )
-def download(url, output, reference, cache_info, max_retry, try_gzip) -> None:
+@click.option(
+    "--broken-hosts-file",
+    default="config/broken-hosts.txt",
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="""A file containing a list of known broken HTTP hosts, from
+            which downloading a gzipped file shall not be attempted
+            despite --try-gzip.""",
+)
+def download(
+    url, output, reference, cache_info, max_retry, try_gzip, broken_hosts_file
+) -> None:
     """Download a file."""
 
-    urlpath = Path(urlparse(url).path)
+    urlobj = urlparse(url)
+    urlpath = Path(urlobj.path)
     compression = Compression.from_extension(urlpath)
 
+    broken_hosts: List[str] = []
+    if try_gzip and broken_hosts_file.exists():
+        with broken_hosts_file.open("r") as f:
+            for line in [line.strip() for line in f]:
+                if line and not line.startswith("#"):
+                    broken_hosts.append(line)
+
     attempts: List[Tuple[str, Compression]] = []
-    if compression == Compression.NONE and try_gzip:
+    if (
+        compression == Compression.NONE
+        and try_gzip
+        and urlobj.netloc not in broken_hosts
+    ):
         attempts.append((url + ".gz", Compression.GZIP))
     attempts.append((url, compression))
 
