@@ -1104,7 +1104,7 @@ PATTERN_CLEAN_FILES     = $(PATTERNDIR)/all_pattern_terms.txt \
                           {%- endfor %}
                           {%- endif %}
 
-EXTERNAL_PATTERN_URLS   = $(filter-out #%, $(strip $(file <$(PATTERNDIR)/dosdp-patterns/external.txt)))
+EXTERNAL_PATTERN_URLS   = $(strip $(shell test -f $(PATTERNDIR)/dosdp-patterns/external.txt && grep -v ^\# $(PATTERNDIR)/dosdp-patterns/external.txt))
 
 .PHONY: pattern_clean
 pattern_clean:
