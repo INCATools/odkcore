@@ -1104,8 +1104,7 @@ PATTERN_CLEAN_FILES     = $(PATTERNDIR)/all_pattern_terms.txt \
                           {%- endfor %}
                           {%- endif %}
 
-EXTERNAL_PATTERN_URLS   = $(strip $(file <$(PATTERNDIR)/dosdp-patterns/external.txt))
-EXTERNAL_PATTERN_FILES  = $(notdir $(EXTERNAL_PATTERN_URLS))
+EXTERNAL_PATTERN_URLS   = $(strip $(shell test -f $(PATTERNDIR)/dosdp-patterns/external.txt && grep -v ^\# $(PATTERNDIR)/dosdp-patterns/external.txt))
 
 .PHONY: pattern_clean
 pattern_clean:
@@ -1138,10 +1137,12 @@ update_patterns: download_patterns
 	        cp $$f $(PATTERNDIR)/dosdp-patterns ;
 	done
 
+ifeq ($(MIR),true)
 $(PATTERNDIR)/dosdp-patterns/%.yaml: download_patterns
 	@if [ -f $(TMPDIR)/dosdp/$*.yaml ]; then \
 	        cp $(TMPDIR)/dosdp/$*.yaml $@ ; \
 	fi
+endif
 
 # DOSDP pipelines
 # ----------------------------------------
