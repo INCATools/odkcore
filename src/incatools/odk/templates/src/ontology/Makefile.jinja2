@@ -1137,10 +1137,12 @@ update_patterns: download_patterns
 	        cp $$f $(PATTERNDIR)/dosdp-patterns ;
 	done
 
+ifeq ($(MIR),true)
 $(PATTERNDIR)/dosdp-patterns/%.yaml: download_patterns
 	@if [ -f $(TMPDIR)/dosdp/$*.yaml ]; then \
 	        cp $(TMPDIR)/dosdp/$*.yaml $@ ; \
 	fi
+endif
 
 # DOSDP pipelines
 # ----------------------------------------
