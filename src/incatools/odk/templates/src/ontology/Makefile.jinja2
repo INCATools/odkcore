@@ -339,6 +339,24 @@ $(REPORTDIR)/%-obo-report.tsv: % | $(REPORTDIR)
 	                {% endif -%}
 	                --print 5 --output $@
 
+{% if "edit" in project.robot.report.report_on|default(["edit"]) -%}
+{# We need a special rule to ensure the report on the "edit" file is
+   actually run on $(SRCMERGED). -#}
+$(REPORTDIR)/$(SRC)-obo-report.tsv: $(SRCMERGED) | $(REPORTDIR)
+	$(ROBOT) report --input $< $(REPORT_LABEL) $(REPORT_PROFILE_OPTS) \
+	                --fail-on $(REPORT_FAIL_ON) \
+	                {% if project.robot.report.use_base_iris -%}
+	                {%   if project.namespaces is not none -%}
+	                {%     for iri in project.namespaces %}--base-iri {{ iri }} \
+	                {%     endfor -%}
+	                {%   else -%}--base-iri $(URIBASE)/{{ project.id.upper() }}_ \
+	                --base-iri $(URIBASE)/{{ project.id }} \
+	                {%   endif -%}
+	                {% endif -%}
+	                --print 5 --output $@
+
+{% endif -%}
+
 {% if project.robot.report.upper_ontology is defined and project.robot.report.upper_ontology -%}
 $(REPORTDIR)/%-align-report.tsv: % | $(REPORTDIR) all_robot_plugins
 	$(ROBOT) odk:check-align --input $< --reasoner $(REASONER) \
