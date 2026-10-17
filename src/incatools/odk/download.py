@@ -11,7 +11,7 @@ from bz2 import BZ2File
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from gzip import GzipFile
+from gzip import BadGzipFile, GzipFile
 from hashlib import sha256
 from io import BufferedIOBase, BytesIO
 from pathlib import Path
@@ -49,6 +49,13 @@ class Compression(Enum):
 
 
 class DownloadError(Exception):
+    pass
+
+
+# bz2 does not provide a specific exception type for the case where the
+# file it is asked to decompress is not a valid Bzip2 file, so we make
+# our own.
+class BadBzip2File(OSError):
     pass
 
 
@@ -202,10 +209,18 @@ def _handle_successful_download(
     # verified that the downloaded file is different from the output
     # file, if it already exists
     tmpfile = output.with_suffix(output.suffix + ".tmp")
-    with tmpfile.open("wb") as fd:
-        for chunk in _ResponseWrapper.maybe_wrap(response, comp).iter_content(512):
-            h.update(chunk)
-            fd.write(chunk)
+    try:
+        with tmpfile.open("wb") as fd:
+            for chunk in _ResponseWrapper.maybe_wrap(response, comp).iter_content(512):
+                h.update(chunk)
+                fd.write(chunk)
+    except (BadGzipFile, BadBzip2File) as e:
+        # We treat that as a download error because it might be caused
+        # by badly configured servers (such as www.ebi.ac.uk) sending
+        # an uncompressed HTML page (with a normal 200 reply) when
+        # asked for a non-existing compressed file
+        tmpfile.unlink(missing_ok=True)
+        raise DownloadError(f"Cannot decompress downloaded file: {e}") from e
     checksum = h.hexdigest()
     if info.sha256 == checksum:
         logging.info(
@@ -252,6 +267,16 @@ class _ResponseWrapper:
         if compression == Compression.GZIP:
             return _ResponseWrapper(GzipFile(fileobj=BytesIO(response.content)))
         elif compression == Compression.BZIP2:
-            return _ResponseWrapper(BZ2File(BytesIO(response.content)))
+            # bz2 would return a generic OSError if the content is not
+            # a Bzip2-compressed stream, which would not allow us to
+            # distinguish this particular case from any other I/O error;
+            # so we explicitly check for the Bzip2 marker at the
+            # beginning of the stream.
+            stream = BytesIO(response.content)
+            magic = stream.read(3)
+            if magic != b"BZh":
+                raise BadBzip2File("Not a Bzip2-compressed file")
+            stream.seek(0)
+            return _ResponseWrapper(BZ2File(stream))
         else:
             return response
