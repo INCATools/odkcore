@@ -1764,6 +1764,8 @@ $(ONT)-basic.owl: $(EDIT_PREPROCESSED) $(SIMPLESEED) $(KEEPRELATIONS)
 # International: A variant of the primary release, but with multi-language support.
 $(ONT)-international.owl: $(ONT).owl $(TRANSLATIONS_OWL)
 	$(ROBOT) merge $(foreach src, $^, --input $(src)) \
+	         $(SHARED_ROBOT_COMMANDS) \
+	         annotate --ontology-iri $(ONTBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	                  {% if project.release_date -%}
 	                  --annotation oboInOwl:date "$(OBODATE)" \
