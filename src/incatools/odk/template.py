@@ -25,7 +25,7 @@ from .util import grep, runcmd
 
 TEMPLATE_SUFFIX = ".jinja2"
 DEFAULT_TEMPLATE_DIR = Path(__file__).parent.resolve() / "templates"
-RESOURCES_DIR = Path(os.environ.get("ODK_RESOURCES_DIR", "/tools/resources"))
+RESOURCES_DIR = Path(os.environ.get("ODK_RESOURCES_DIR", "/odk/resources"))
 
 
 class InstallPolicy(Enum):

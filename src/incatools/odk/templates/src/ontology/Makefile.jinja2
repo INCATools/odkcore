@@ -74,7 +74,7 @@ BRIDGEDIR                 = bridges
 TRANSLATIONSDIR           = ../translations
 {% endif -%}
 PATCHESDIR                = $(TMPDIR)/patches
-ODK_RESOURCES_DIR        ?= /tools/resources
+ODK_RESOURCES_DIR        ?= /odk/resources
 
 # Files
 SRC                       = $(ONT)-edit.$(EDIT_FORMAT)
@@ -257,6 +257,7 @@ $(ROBOT_PLUGINS_DIRECTORY)/%.jar:
 $(ROBOT_PLUGINS_DIRECTORY)/{{ plugin.name }}.jar:
 	{# -#}
 	{% if plugin.mirror_from -%}
+	@mkdir -p $(ROBOT_PLUGINS_DIRECTORY)
 	curl --location --output $@ {{ plugin.mirror_from -}}
 	{% else -%}
 	@echo "ERROR: No URL has been provided for this plugin; you must override"
