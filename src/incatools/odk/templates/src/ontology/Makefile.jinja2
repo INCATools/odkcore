@@ -191,7 +191,6 @@ config_check:
 test: odkversion validate_idranges{# -#}
       {% if project.use_dosdps %} dosdp_validation{% endif %} \
       reason_test sparql_test robot_reports{# -#}
-      {% if project.ensure_valid_rdfxml %} check_rdfxml_products{% endif -%}
       {% if project.robot.report.ensure_owl2dl_profile|default(true) %} \
       $(REPORTDIR)/validate_profile_owl2dl_$(ONT).owl.txt{# -#}
       {% endif %}
@@ -1938,7 +1937,7 @@ RELEASED_ASSETS = $(foreach n, $(RELEASE_ASSETS), $(RELEASEDIR)/$(n)){# -#}
 CLEANFILES      = $(MAIN_FILES)
 
 .PHONY: all_assets
-all_assets: $(ASSETS)
+all_assets: $(ASSETS){% if project.ensure_valid_rdfxml %} check_rdfxml_products{% endif %}
 
 .PHONY: show_assets
 show_assets:
