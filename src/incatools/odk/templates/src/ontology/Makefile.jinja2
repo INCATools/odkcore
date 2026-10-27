@@ -465,7 +465,7 @@ download-mirror-{{ ont.id }}: | $(TMPDIR)
 
 {%       if ont.mirror_type == 'custom' -%}
 $(MIRRORDIR)/{{ ont.id }}.owl:
-	@echo "ERROR: You have configured your default mirror type to be custom;
+	@echo "ERROR: You have configured your default mirror type to be custom;"
 	@echo "       this behavior needs to be overwritten in {{ project.id }}.Makefile!"
 	@false
 {%       else -%}
