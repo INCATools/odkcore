@@ -1803,14 +1803,14 @@ $(ONT).obo: $(ONT).owl
    been annotated already.
    See https://github.com/INCATools/ontology-development-kit/issues/1366. -#}
 $(ONT).ttl: $(ONT).owl
-	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
+	$(ROBOT) annotate --input $< --ontology-iri $(URIBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	         convert --check false --format ttl --output $@
 
 {%   endif -%}
 {%   if "json" in project.export_format_names -%}
 $(ONT).json: $(ONT).owl
-	$(ROBOT) annotate --input $< --ontology-iri $(ONTBASE)/$@ \
+	$(ROBOT) annotate --input $< --ontology-iri $(URIBASE)/$@ \
 	         $(ANNOTATE_ONTOLOGY_VERSION) \
 	         convert --check false --format json --output $@
 
