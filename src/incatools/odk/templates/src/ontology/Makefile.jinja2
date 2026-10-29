@@ -1151,7 +1151,7 @@ download_patterns: | $(TMPDIR)
 .PHONY: update_patterns
 update_patterns: download_patterns
 	@for f in $$(find $(TMPDIR) -type f -path '$(TMPDIR)/dosdp/*.yaml') ; do \
-	        cp $$f $(PATTERNDIR)/dosdp-patterns ;
+	        cp $$f $(PATTERNDIR)/dosdp-patterns ; \
 	done
 
 ifeq ($(MIR),true)
