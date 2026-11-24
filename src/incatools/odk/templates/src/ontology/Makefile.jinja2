@@ -1143,10 +1143,16 @@ patterns dosdp: dosdp_validation $(PATTERNDIR)/pattern.owl $(PATTERNDIR)/definit
 .PHONY: download_patterns
 download_patterns: | $(TMPDIR)
 	mkdir -p $(TMPDIR)/dosdp
-	$(foreach url, $(EXTERNAL_PATTERN_URLS), \
-	          odk-helper download --output $(TMPDIR)/dosdp/$(notdir $(url)) \
-	                              --reference $(PATTERNDIR)/dosdp-patterns/$(notdir $(url)) \
-	                              $(url);)
+	@status=0 ; \
+	for url in $(EXTERNAL_PATTERN_URLS) ; do \
+	        odk-helper download --output $(TMPDIR)/dosdp/$${url##*/} \
+	                            --reference $(PATTERNDIR)/dosdp-patterns/$${url##*/} \
+	                            $$url || status=1 ; \
+	done ; \
+	if [ $$status -ne 0 ]; then \
+	        rm -f $(TMPDIR)/dosdp/*.info ; \
+	fi ; \
+	exit $$status
 
 .PHONY: update_patterns
 update_patterns: download_patterns
