@@ -2146,7 +2146,7 @@ help:
 	@echo "$$ODK_HELP_MESSAGE"
 
 define ODK_HELP_MESSAGE
-Usage: [IMAGE=(odklite|odkfull)] [ODK_DEBUG=yes] sh run.sh make [(MIR|IMP|IMP_LARGE|COMP|PAT)=(false|true)] command
+Usage: [ODK_IMAGE=(odklite|odkfull)] [ODK_DEBUG=yes] sh run.sh make [(MIR|IMP|IMP_LARGE|COMP|PAT)=(false|true)] command
 
    or: odkrun [--lite] [--debug] make [(MIR|IMP|IMP_LARGE|COMP|PAT)=(false|true)] command
 
@@ -2180,7 +2180,7 @@ Imports management:
 * no-mirror-refresh-%:			Refresh a single import without updating the mirror
 					(i.e. refresh-go will refresh 'imports/go_import.owl').
 {% endif -%}
-* mirror-%:				Refresh a single mirror.
+* $(MIRRORDIR)/%.owl:				Refresh a single mirror.
 
 {% endif -%}
 {% if project.use_dosdps -%}
@@ -2239,7 +2239,7 @@ Tricks:
 * To forcefully rebuild a target even if nothing has changed, either
   invoke the 'clean' target (which will wipe out intermediate files)
   or touch a file that your target depends on (typically the -edit file).
-* Use the IMAGE parameter to the run.sh script to use a different image like odklite
+* Use the ODK_IMAGE parameter to the run.sh script to use a different image like odklite
   (or use odkrun's --image option).
 * Use ODK_DEBUG=yes sh run.sh make ... to print information about timing and debugging
   (or use odkrun's --debug option).
