@@ -162,7 +162,7 @@ def info(tools) -> None:
     type=click.Path(path_type=Path),
     help="""Read/write cache data from/to the specified file. The
             default is the same location as specified with the
-            --reference option plus an added '.info' extension.""",
+            --output option plus an added '.info' extension.""",
 )
 @click.option(
     "--max-retry",

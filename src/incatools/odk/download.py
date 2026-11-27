@@ -176,24 +176,24 @@ def download_file(
                 sleep(1)
             else:
                 response.raise_for_status()
-        except requests.exceptions.ConnectTimeout:
+        except requests.exceptions.Timeout:
             # `curl --retry` retries on timeout errors, and so do we
             if n_try < max_retry:
                 n_try += 1
                 logging.warning(
-                    f"{output.name}: Timeout when connecting to {hostname}, retrying ({n_try}/{max_retry})"
+                    f"{output.name}: Timeout when downloading {url}, retrying ({n_try}/{max_retry})"
                 )
                 sleep(1)
             else:
-                raise DownloadError(f"Timeout when connecting to {hostname}")
+                raise DownloadError(f"Timeout when downloading {url}")
         except requests.exceptions.ConnectionError:
             raise DownloadError(f"Cannot connect to {hostname}")
+        except requests.exceptions.RequestException as e:
+            raise DownloadError(f"Unknown error when downloading {url}: {e}")
         except requests.exceptions.HTTPError as e:
             raise DownloadError(
                 f"HTTP {e.response.status_code} error when downloading {url}"
             )
-        except requests.exceptions.ReadTimeout:
-            raise DownloadError(f"Timeout when downloading {url}")
 
 
 def _handle_successful_download(
